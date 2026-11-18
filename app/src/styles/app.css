@@ -47,8 +47,8 @@ html.reduce .dg .strip{transition:none}
 .meters .m+.m{border-inline-start:1px solid var(--c-line)}
 .meters .num{font:700 52px/1 var(--f-display);letter-spacing:-.5px}
 .meters .num.long{font-size:36px}
-.meters .clk{font:500 16px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:6px}
-.meters .u{font:400 13px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:6px}
+.meters .clk{font:500 16px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:4px}
+.meters .u{display:flex;flex-direction:column;align-items:center;font:400 12px/1.25 var(--f-text);color:var(--c-ink-2);margin-top:6px;min-height:2.5em}
 .slim{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-top:1px solid var(--c-line);text-align:right}
 .slim .col{flex:1;min-width:0}
 .slim .one{display:block;font:500 14px/1.25 var(--f-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -125,11 +125,12 @@ function moneySplit(amount) {
 
 function lifeParts(minutes) {
   const m = Math.max(0, Math.round(minutes));
-  if (m < 60) return { n: String(m), u: 'דקות' };
+  if (m < 60) return { n: String(m), a: 'דקות חיים', b: 'שחזרו' };
   const h = Math.floor(m / 60);
-  if (h < 48) return { n: `${h}:${String(m % 60).padStart(2, '0')}`, u: 'שעות' };
+  if (h < 48) return { n: `${h}:${String(m % 60).padStart(2, '0')}`, a: 'שעות חיים', b: 'שחזרו' };
   const d = Math.max(1, Math.round(h / 24));
-  return { n: String(d), u: d === 1 ? 'יום' : 'ימים' };
+  if (d === 1) return { n: '1', a: 'יום חיים', b: 'שחזר' };
+  return { n: String(d), a: 'ימי חיים', b: 'שחזרו' };
 }
 
 /** A short pass along milestones already reached, then rest on the one in progress. */
@@ -213,8 +214,8 @@ function home() {
   const have = (money || 0) + prevMoney(st);
   const gp = goal ? Math.min(1, have / goal) : 0;
   const wide = parts.whole.length > 4 ? ' long' : '';
-  const dayUnit = days === 1 ? 'יום' : 'ימים';
-  const cigUnit = cigs === 1 ? 'סיגריה' : 'סיגריות';
+  const dayA = days === 1 ? 'יום' : 'ימים';
+  const cigA = cigs === 1 ? 'סיגריה' : 'סיגריות';
   const healthLine = next
     ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
     : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
@@ -236,9 +237,9 @@ function home() {
     </header>
     <div class="home-body">
       <div class="meters">
-        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi><div class="u" data-live="daysu">${dayUnit}</div></button>
-        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${String(cigs ?? '').length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u" data-live="cigu">${cigUnit}</div></button>
-        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${life.n.length > 4 ? ' long' : ''}" data-roll="life">${life.n}</bdi><div class="u" data-live="lifeu">${life.u}</div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><div class="u"><span data-live="daysa">${dayA}</span><span>בלי עישון</span></div><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${String(cigs ?? '').length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${life.n.length > 4 ? ' long' : ''}" data-roll="life">${life.n}</bdi><div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
       </div>
       ${healthLine}
       ${goalLine}
@@ -741,9 +742,10 @@ export function livePatch() {
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
     cigs: cigsN == null ? '—' : nf(cigsN, 0),
     life: life.n,
-    daysu: days === 1 ? 'יום' : 'ימים',
-    cigu: cigsN === 1 ? 'סיגריה' : 'סיגריות',
-    lifeu: life.u,
+    daysa: days === 1 ? 'יום' : 'ימים',
+    ciga: cigsN === 1 ? 'סיגריה' : 'סיגריות',
+    lifea: life.a,
+    lifeb: life.b,
   };
   for (const el of document.querySelectorAll('[data-roll]')) {
     const next = rolls[el.dataset.roll];
