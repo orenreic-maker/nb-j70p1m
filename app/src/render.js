@@ -1,6 +1,6 @@
 import { icon } from './icons.js';
 import { BREATH } from './breath.js';
-import { scene, wordmark, WORDMARK } from './scene.js';
+import { scene, sceneCompact, wordmark, WORDMARK } from './scene.js';
 import { st, now } from './store.js';
 import { ui } from './ui-state.js';
 import {
@@ -106,18 +106,18 @@ function home() {
   const gp = goal ? Math.min(1, have / goal) : 0;
   const bars = weekBars(t);
   return `<div class="home screen">
-    <header class="home-top">
-      <div class="scene">${scene(390, 230, dark, stones)}</div>
-      <div class="home-head">
+    <header class="home-hero">
+      <div class="home-art">
+        ${sceneCompact(dark, stones)}
         <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
-        <div class="hi">${greet(t)}${name}</div>
-        <div class="count">
-          <div class="n" data-live="days">${days}</div>
-          <div class="count-side">
-            <div class="u">${unit}</div>
-            <div class="clock">${icon('clock', 15)}<span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
-            <div class="small">${q ? `מאז ${esc(hebDate(q))}` : 'עוד אין תאריך'}</div>
-          </div>
+      </div>
+      <div class="home-type">
+        <div class="n" data-live="days">${days}</div>
+        <div class="count-side">
+          <div class="hi">${greet(t)}${name}</div>
+          <div class="u">${unit}</div>
+          <div class="clock">${icon('clock', 15)}<span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
+          <div class="small since">${q ? `מאז ${esc(hebDate(q))}` : 'עוד אין תאריך'}</div>
         </div>
       </div>
     </header>
