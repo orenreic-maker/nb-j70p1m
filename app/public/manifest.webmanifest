@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "BreathAnew",
+  "short_name": "BreathAnew",
+  "description": "מונה גמילה פרטי. הזמן, הכסף והבריאות נשמרים רק במכשיר.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6EFE3",
+  "theme_color": "#F6EFE3",
+  "icons": [
+    { "src": "./icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ]
+}
