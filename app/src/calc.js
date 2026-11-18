@@ -34,6 +34,17 @@ export function ppcOf(s) {
   return Object.values(costParts(s)).reduce((a, b) => a + b, 0);
 }
 
+/** Illustrative future value: principal compounds, and a monthly deposit is added. Not advice. */
+export function futureValue(principal, monthly, annual, years) {
+  const a = Math.min(0.1, Math.max(0.03, Number(annual) || 0));
+  const y = Math.max(0, Number(years) || 0);
+  const r = (1 + a) ** (1 / 12) - 1;
+  const n = Math.round(y * 12);
+  const grown = Math.max(0, principal) * (1 + a) ** y;
+  const ann = r < 1e-8 ? monthly * n : monthly * (((1 + r) ** n - 1) / r);
+  return grown + Math.max(0, ann);
+}
+
 export function slipsBetween(st, from, to = Infinity, skipRestartAtStart = false) {
   return (st.slips || []).reduce((a, s) => {
     if (skipRestartAtStart && s.restart && s.t <= from) return a;
