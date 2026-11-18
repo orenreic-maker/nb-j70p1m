@@ -1,7 +1,9 @@
 import { icon } from './icons.js';
 import { BREATH } from './breath.js';
-import { scene, sceneCompact, wordmark, WORDMARK } from './scene.js';
-import { st, now } from './store.js';
+import { scene, wordmark, WORDMARK } from './scene.js';
+import { livingScene, stageFor } from './living.js';
+import { hasSpot, spot, tabIcon } from './art.js';
+import { now, save, st } from './store.js';
 import { ui } from './ui-state.js';
 import {
   DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, hebDate,
@@ -34,7 +36,7 @@ function moneyFig(amount, digits = 0, live = '') {
 
 function nav(active) {
   const items = [['home', 'today', 'היום'], ['health', 'body', 'הגוף'], ['badges', 'growth', 'צמיחה'], ['journal', 'journal', 'יומן'], ['settings', 'settings', 'הגדרות']];
-  return `<nav class="tab">${items.map(([r, ic, l]) => `<button data-act="go" data-go="${r}" class="${active === r ? 'on' : ''}">${icon(ic, 24, 'currentColor', 1.6)}<span>${l}</span></button>`).join('')}</nav>`;
+  return `<nav class="tab">${items.map(([r, , l]) => `<button data-act="go" data-go="${r}" class="${active === r ? 'on' : ''}">${tabIcon(r, active === r)}<span>${l}</span></button>`).join('')}</nav>`;
 }
 
 function ad(route) {
@@ -68,6 +70,8 @@ export function render() {
   if (sc && ui.scroll) sc.scrollTop = ui.scroll;
   if (ui.route === 'home') {
     for (const el of document.querySelectorAll('[data-roll]')) rollInto(el, el.textContent);
+    bindLiving();
+    noteStage();
   }
   if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
 }
@@ -113,6 +117,38 @@ function rollInto(node, str) {
     });
   }
   node._s = s;
+}
+
+let sceneScroll = null;
+
+function bindLiving() {
+  const screen = document.querySelector('.screen.home');
+  const live = document.querySelector('.living');
+  if (!screen || !live) return;
+  if (sceneScroll) screen.removeEventListener('scroll', sceneScroll);
+  if (!bindLiving.vis) {
+    bindLiving.vis = true;
+    document.addEventListener('visibilitychange', () => {
+      document.documentElement.classList.toggle('scene-off', document.hidden);
+    });
+  }
+  sceneScroll = () => {
+    if (document.documentElement.classList.contains('reduce')) return;
+    const y = Math.max(-10, Math.min(16, screen.scrollTop * 0.05));
+    live.style.setProperty('--py', `${y}px`);
+  };
+  screen.addEventListener('scroll', sceneScroll, { passive: true });
+}
+
+function noteStage() {
+  const live = document.querySelector('.living');
+  const id = live?.dataset.stage;
+  if (!id || !st.settings) return;
+  const prev = st.settings.seenStage;
+  if (prev === id) return;
+  st.settings.seenStage = id;
+  save();
+  if (prev) live.classList.add('arrive');
 }
 
 function moneySplit(amount) {
@@ -213,6 +249,8 @@ function home() {
   const goal = st.settings.goalPrice || 0;
   const have = (money || 0) + prevMoney(st);
   const gp = goal ? Math.min(1, have / goal) : 0;
+  const stage = stageFor(days);
+  const scene = livingScene(days, dark);
   const wide = parts.whole.length > 4 ? ' long' : '';
   const dayA = days === 1 ? 'יום' : 'ימים';
   const cigA = cigs === 1 ? 'סיגריה' : 'סיגריות';
@@ -220,12 +258,13 @@ function home() {
     ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
     : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
   const goalLine = goal
-    ? `<button class="slim" data-act="editor" data-ed="goal"><span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}" aria-hidden="true"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>`
-    : `<button class="slim" data-act="editor" data-ed="goal"><span class="one">יעד חיסכון</span></button>`;
+    ? `<button class="slim" data-act="editor" data-ed="goal">${spot('jar', 36)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}" aria-hidden="true"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>`
+    : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 36)}<span class="one">יעד חיסכון</span></button>`;
   return `<div class="home screen">
     <header class="home-hero">
-      <div class="home-art">${sceneCompact(dark, stones)}</div>
-      <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
+      <div class="home-art living${dark ? ' dark' : ''}" data-stage="${stage.id}">${scene.html}</div>
+      <div class="stage-tag">יום ${days} · ${stage.label}</div>
+      <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${spot('share', 28) || icon('share', 20)}</button></div>
       <div class="pocket">
         <div class="fig${wide}" dir="ltr">
           <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
@@ -244,7 +283,7 @@ function home() {
       ${healthLine}
       ${goalLine}
       <div class="home-foot">
-      <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
+      <button class="sos" data-act="sos"><span class="w">${spot('breath', 36)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
       <div class="linkrow">
         <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
         <button class="btn text" data-act="open-checkin">${icon('check-in', 16)}איך עבר היום</button>
@@ -267,7 +306,7 @@ function weekBars(t) {
     cells.push({ n, today: i === 0 });
   }
   if (cells.every((c) => c.n === 0)) {
-    return `<p class="week-empty">אחרי החשק הראשון יופיע כאן השבוע.</p>`;
+    return `<div class="week-empty">${spot('empty', 72)}<p>אחרי החשק הראשון יופיע כאן השבוע.</p></div>`;
   }
   const max = Math.max(1, ...cells.map((c) => c.n));
   return `<div class="wbars" aria-hidden="true">${cells.map((c) => `<i class="${c.today ? 'now' : ''} ${c.n ? 'on' : ''}" style="height:${6 + Math.round((c.n / max) * 22)}px"></i>`).join('')}</div>`;
@@ -354,7 +393,8 @@ function healthItem(h) {
       : `<div class="nd next"></div>`;
   const ic = h.status === 'next' ? 'var(--c-ink-3)' : 'var(--c-clay)';
   const mark = h.status === 'now' ? '<b class="tag">עכשיו</b>' : done ? '<b class="tag got">הושג</b>' : '';
-  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${icon(h.icon, 16, ic)}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">הושג · ${esc(got)}</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
+  const glyph = hasSpot(h.icon) ? spot(h.icon, 28) : icon(h.icon, 16, ic);
+  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${glyph}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">הושג · ${esc(got)}</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
 }
 
 function badges() {
@@ -384,7 +424,8 @@ function medal(ic, status, p, size) {
     const c = 2 * Math.PI * r;
     ringSvg = `<svg width="${size}" height="${size}" style="position:absolute;inset:0;transform:rotate(-90deg)"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--c-clay)" stroke-width="3" stroke-dasharray="${(c * p).toFixed(1)} 999" stroke-linecap="round"/></svg>`;
   }
-  return `<div class="medal ${status}" style="width:${size}px;height:${size}px">${ringSvg}${icon(ic, Math.round(size * 0.42), col, 1.6)}</div>`;
+  const face = spot('medal', Math.round(size * 0.86));
+  return `<div class="medal ${status}" style="width:${size}px;height:${size}px">${ringSvg}${face}</div>`;
 }
 
 function unlockView(item) {
@@ -394,7 +435,8 @@ function unlockView(item) {
   const idx = ach ? ACH.findIndex((a) => a.id === item.item.id) + 1 : HEALTH.findIndex((h) => h.id === item.item.id) + 1;
   const total = ach ? ACH.length : HEALTH.length;
   const label = ach ? 'הישג חדש' : 'תחנה בגוף';
-  return `<div class="unlock screen"><div class="rays"></div><div class="c"><div class="m">${icon(ach ? item.item.icon : item.item.icon, 68, '#2F3A2B', 1.5)}</div>
+  const glyph = hasSpot(item.item.icon) ? spot(item.item.icon, 88) : icon(item.item.icon, 68, '#2F3A2B', 1.5);
+  return `<div class="unlock screen"><div class="rays"></div><div class="c"><div class="m">${glyph}</div>
     <div class="e">${label} · ${idx} מתוך ${total}</div><div class="t">${esc(title)}</div><div class="d">${esc(body)}</div></div>
     <div class="foot"><button class="btn cream" data-act="unlock-ok">ממשיכים</button><button class="btn line" data-act="go" data-go="share">${icon('share', 18, '#F6EFE3')}שיתוף ההישג</button></div></div>`;
 }
@@ -501,7 +543,7 @@ function settings() {
     ${row('goal', 'יעד חיסכון', s.goalPrice ? ils(s.goalPrice, 0) : '—', 'goal')}
     ${row('quote', 'הסיבות והתמונה', String((s.reasons || []).length + (s.photo ? 1 : 0)), 'why')}
     <div class="sec">תצוגה ותחושה</div>
-    <div class="row" style="flex-wrap:wrap"><div class="ib">${icon('moon', 19)}</div><div class="t">מראה</div><div class="seg" style="width:100%;margin-top:8px;display:flex"><button data-act="theme" data-theme="light" class="${s.theme === 'light' ? 'on' : ''}" style="flex:1">בהיר</button><button data-act="theme" data-theme="auto" class="${s.theme === 'auto' ? 'on' : ''}" style="flex:1">אוטומטי</button><button data-act="theme" data-theme="dark" class="${s.theme === 'dark' ? 'on' : ''}" style="flex:1">כהה</button></div></div>
+    <div class="row" style="flex-wrap:wrap"><div class="ib">${spot('moon', 32)}</div><div class="t">מראה</div><div class="seg" style="width:100%;margin-top:8px;display:flex"><button data-act="theme" data-theme="light" class="${s.theme === 'light' ? 'on' : ''}" style="flex:1">בהיר</button><button data-act="theme" data-theme="auto" class="${s.theme === 'auto' ? 'on' : ''}" style="flex:1">אוטומטי</button><button data-act="theme" data-theme="dark" class="${s.theme === 'dark' ? 'on' : ''}" style="flex:1">כהה</button></div></div>
     ${toggle('sound', 'sound', 'צלילים', s.sound)}
     ${toggle('vibrate', 'haptics', 'רטט', s.haptics)}
     ${toggle('sparkle', 'celebrate', 'חגיגות והנפשות', s.celebrate, 'מכבד גם את הפחתת התנועה במכשיר')}
@@ -531,7 +573,7 @@ function toggle(ic, key, title, on, sub = '') {
 }
 
 function share() {
-  return `<div class="screen"><div class="appbar"><div style="display:flex;align-items:center;gap:10px"><button class="iconbtn" data-act="back" aria-label="סגירה">${icon('close', 16)}</button><div class="ttl">שיתוף</div></div>
+  return `<div class="screen"><div class="appbar"><div style="display:flex;align-items:center;gap:10px"><button class="iconbtn" data-act="back" aria-label="סגירה">${icon('close', 16)}</button><div class="ttl">שיתוף</div></div>${spot('share', 22)}
     <div class="seg"><button data-act="shape" data-shape="story" class="${ui.shareShape === 'story' ? 'on' : ''}">סטורי</button><button data-act="shape" data-shape="square" class="${ui.shareShape === 'square' ? 'on' : ''}">ריבוע</button></div></div>
     <div class="share-prev ${ui.shareShape === 'square' ? 'sq' : ''}"><canvas id="card"></canvas></div>
     <div class="pad"><button class="row" data-act="sharetoggle" data-key="shareMoney"><div class="t">להציג סכום חיסכון</div><div class="tg ${ui.shareMoney ? 'on' : ''}"></div></button>
@@ -558,7 +600,7 @@ function slipDone() {
       <p class="lead" style="margin-top:10px">כל השעות בלי עישון עדיין קרו. מעידה היא נתון, לא מחיקה.</p>
       <div class="led"><div><div class="v">${days}</div><div class="k">ימים ברצף הנוכחי</div></div><div><div class="v">${moneyFig(moneyAt(st, now()), 0)}</div><div class="k">נחסכו ברצף</div></div><div><div class="v">${Object.keys(st.unlocked).length}</div><div class="k">הישגים נשמרו</div></div></div>
       <button class="btn primary" data-act="go" data-go="home" style="width:100%;margin-top:18px">חזרה להיום</button>
-      <button class="btn ghost" data-act="sos" style="width:100%;margin-top:10px">${icon('breath', 18)}לנשום עכשיו</button>
+      <button class="btn ghost" data-act="sos" style="width:100%;margin-top:10px">${spot('breath', 22)}לנשום עכשיו</button>
     </div></div>`;
 }
 
@@ -580,7 +622,7 @@ function obBlocked(step) {
 }
 
 function obWelcome() {
-  return `<div style="position:relative"><div class="welcome-scene">${scene(390, 560, false, 1)}</div><div style="position:absolute;top:calc(8px + env(safe-area-inset-top));left:var(--gutter);right:var(--gutter);display:flex;justify-content:flex-start">${wordmark(18, false)}</div></div>
+  return `<div style="position:relative"><div class="welcome-scene"><img class="ob-hero" src="art/spots/onboarding-hero.webp" alt=""></div><div style="position:absolute;top:calc(8px + env(safe-area-inset-top));left:var(--gutter);right:var(--gutter);display:flex;justify-content:flex-start">${wordmark(18, false)}</div></div>
     <div class="welcome-sheet"><div class="h-display">כל נשימה<br>היא התחלה</div><p class="lead" style="margin-top:12px">מונה גמילה פרטי: זמן, כסף ובריאות. בלי חשבון ובלי שרת. הכול נשאר במכשיר. רישום חשק מראה שהוא נחלש ומתקצר.</p></div>`;
 }
 function obDate() {
@@ -645,7 +687,7 @@ function overlay() {
 function slipSheet() {
   const chips = TRIGGERS.map((t) => `<button data-act="slip-trig" data-id="${t.id}" class="${ui.slipTriggers.includes(t.id) ? 'on' : ''}">${t.label}</button>`).join('');
   return `<div class="dim" data-act="overlay-off"></div><div class="panel"><div class="grab"></div>
-    <div style="display:flex;gap:12px;align-items:center">${icon('slip', 28, 'var(--c-clay)')}<div class="h1">רגע קשה. זה קורה.</div></div>
+    <div style="display:flex;gap:12px;align-items:center">${spot('slip', 48)}<div class="h1">רגע קשה. זה קורה.</div></div>
     <p class="lead" style="margin-top:8px">מעידה היא נתון, לא כישלון. שום דבר ממה שהושג לא נמחק.</p>
     <div class="field"><label>כמה סיגריות?</label><div class="stepper"><button class="iconbtn" data-act="slip-n" data-d="-1">${icon('minus', 16)}</button><div class="n">${ui.slipCigs}</div><button class="iconbtn" data-act="slip-n" data-d="1">${icon('plus', 16)}</button></div></div>
     <div class="field"><label>מה היה סביב זה?</label><div class="chips">${chips}</div></div>

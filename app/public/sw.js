@@ -1,5 +1,5 @@
 /* BreathAnew preview cache. Scope is the directory of this file (/…/preview/), never the live root app. */
-const CACHE = 'breathanew-preview-v1';
+const CACHE = 'breathanew-preview-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
