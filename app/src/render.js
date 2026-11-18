@@ -471,7 +471,7 @@ function pocket() {
         return `<div class="wrow"><div class="wring">${arcRing(64, p, reached)}${pocketSpot(w.art, 50)}</div><div class="wmeta"><div class="t">${w.name}</div><div class="s${reached ? ' got' : ''}">${sub}</div></div><div class="wstat">${stat}</div></div>`;
       }).join('')}
       <div class="pk-hd"><h2>אם זה היה מושקע</h2></div>
-      <div class="grow-wrap"><div class="grow${digitClass(projText)}" dir="ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="proj">${projText}</bdi><span class="tails"><span class="shekel">₪</span></span></span></div></div>
+      <div class="grow-wrap"><div class="grow" dir="ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="proj">${projText}</bdi><span class="tails"><span class="shekel">₪</span></span></span></div></div>
       <p class="grow-cap">בעוד ${horizon} שנים, אם כל חודש נכנס למדד רחב</p>
       <div class="plants">${plants.map(([y, art, h]) => {
         const v = futureValue(saved, monthly, GROWTH_RATE, y);
