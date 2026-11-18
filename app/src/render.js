@@ -364,17 +364,23 @@ function pocket() {
   const goal = st.settings.goalPrice || 0;
   const gp = goal ? Math.min(1, saved / goal) : 0;
   const wide = parts.whole.length > 4 ? ' long' : '';
+  const days = st.settings.quitAt ? Math.floor(Math.max(0, t - st.settings.quitAt) / DAY) : 0;
+  const dark = theme() === 'dark';
+  const scene = livingScene(days, dark);
   return `<div class="screen money-screen">
-    <div class="appbar"><div class="ttl">הכיס</div></div>
-    <div class="pk-hero">
-      <div class="k">נשארו בכיס</div>
-      <div class="fig${wide}" dir="ltr">
-        <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
-        <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
-        <span class="shekel">₪</span>
+    <header class="pk-top">
+      <div class="living pk-scene${dark ? ' dark' : ''}" aria-hidden="true">${scene.html}</div>
+      <div class="pk-over">
+        ${spot('sprout', 52)}
+        <div class="fig${wide}" dir="ltr">
+          <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
+          <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
+          <span class="shekel">₪</span>
+        </div>
+        <div class="k">נשארו בכיס</div>
+        <div class="pk-sub"><bdi dir="ltr" data-roll="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו · <bdi dir="ltr">${nf(units.n, 1)}</bdi> ${units.label}</div>
       </div>
-      <div class="pk-sub"><b data-roll="cigs">${nf(cigs, 0)}</b> סיגריות שלא נדלקו · <b>${nf(units.n, 1)}</b> ${units.label}</div>
-    </div>
+    </header>
     <div class="pk-sec">
       <div class="h2">בקצב הנוכחי</div>
       <div class="rates">${[
@@ -382,16 +388,16 @@ function pocket() {
         ['לשבוע', day * 7],
         ['לחודש', day * MONTH / DAY],
         ['לשנה', day * YEAR / DAY],
-      ].map(([l, n]) => `<div><bdi dir="ltr" class="n">${moneyFig(n, n >= 100 ? 0 : 1)}</bdi><span>${l}</span></div>`).join('')}</div>
+      ].map(([l, n]) => `<div class="cell"><span class="lbl">${l}</span><bdi dir="ltr" class="amt">${moneyFig(n, n >= 100 ? 0 : 1)}</bdi></div>`).join('')}</div>
     </div>
     <div class="pk-sec">
       <div class="h2">מה זה שווה</div>
-      ${goal ? `<button class="slim goal" data-act="editor" data-ed="goal">${spot('jar', 40)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(saved, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>` : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 40)}<span class="one">אפשר לבחור יעד חיסכון</span></button>`}
+      ${goal ? `<button class="slim goal" data-act="editor" data-ed="goal">${spot('jar', 40)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(saved, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>` : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 40)}<span class="one">בחרו יעד חיסכון</span></button>`}
       ${WORTH.map((w) => {
         const p = Math.min(1, saved / w.price);
         const times = saved / w.price;
-        const note = times >= 1 ? `${nf(times, times >= 10 ? 0 : 1)} פעמים` : moneyFig(w.price, 0);
-        return `<div class="worth">${spot(w.art, 44)}<div class="col"><div class="one">${w.name}</div><div class="sub">${note}</div><i class="slimbar"><b style="width:${Math.max(p * 100, p > 0 ? 4 : 0).toFixed(1)}%"></b></i></div></div>`;
+        const note = times >= 1 ? `<div class="sub">${nf(times, times >= 10 ? 0 : 1)} פעמים</div>` : '';
+        return `<div class="worth">${spot(w.art, 44)}<div class="col"><div class="top"><span class="one">${w.name}</span><bdi dir="ltr" class="amt">${moneyFig(w.price, 0)}</bdi></div><i class="slimbar"><b style="width:${Math.max(p * 100, p > 0 ? 4 : 0).toFixed(1)}%"></b></i>${note}</div></div>`;
       }).join('')}
     </div>
     <div class="pk-sec">
@@ -399,7 +405,7 @@ function pocket() {
       <p class="small">כל חודש, הסכום שנחסך מושקע במדד רחב. המספר למטה גדל עם מה שנחסך עכשיו.</p>
       <label class="invest"><span>תשואה שנתית משוערת <b id="investV">${Math.round(rate * 100)}%</b></span><input id="invest" type="range" min="3" max="10" step="1" value="${Math.round(rate * 100)}"></label>
       <div class="proj"><div class="k">בעוד 10 שנים</div><div class="fig" dir="ltr"><bdi dir="ltr" class="main" data-roll="proj">${nf(fvs[2], 0)}</bdi><span class="shekel">₪</span></div></div>
-      <div class="invbars" aria-hidden="true">${fvs.map((v, i) => `<div><i class="${years[i] === 10 ? 'hot' : ''}" style="height:${Math.max(8, Math.round((v / max) * 96))}px"></i><b>${years[i]}</b><span>${moneyFig(v, 0)}</span></div>`).join('')}</div>
+      <div class="invbars">${fvs.map((v, i) => `<div><i class="${years[i] === 10 ? 'hot' : ''}" style="height:${Math.max(8, Math.round((v / max) * 96))}px"></i><b>${years[i] === 1 ? 'שנה' : `${years[i]} שנים`}</b><span><bdi dir="ltr">${moneyFig(v, 0)}</bdi></span></div>`).join('')}</div>
       <p class="disc">להמחשה בלבד, אינו ייעוץ השקעות. תשואות עבר אינן מבטיחות תשואות עתידיות.</p>
     </div>
     <div class="pk-sec">

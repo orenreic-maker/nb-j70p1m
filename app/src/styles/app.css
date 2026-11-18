@@ -173,20 +173,17 @@ html.reduce .dg .strip{transition:none}
 .screen.health,.screen.money-screen{padding-top:var(--sat, env(safe-area-inset-top))}
 button.pocket{display:block;width:100%;color:inherit}
 .pk-hero{text-align:center;padding:4px var(--gutter) 8px}
-.pk-hero .k,.proj .k{font:500 13px/1.2 var(--f-text);color:var(--c-ink-2)}
-.pk-hero .fig,.proj .fig{display:flex;align-items:baseline;justify-content:center;direction:ltr;gap:2px}
-.pk-hero .main{font:700 76px/1 var(--f-display);letter-spacing:-1px}
-.pk-hero .fig.long .main{font-size:52px}
-.pk-hero .agorot{font:500 26px/1 var(--f-text);color:var(--c-ink-2)}
-.pk-hero .shekel,.proj .shekel{font:500 26px/1 "Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;margin-inline-start:6px}
+.pk-hero .k,.pk-over .k,.proj .k{font:500 13px/1.2 var(--f-text);color:var(--c-ink-2)}
+.pk-hero .fig,.pk-over .fig,.proj .fig{display:flex;align-items:baseline;justify-content:center;direction:ltr;gap:2px}
+.pk-hero .main,.pk-over .main{font:700 76px/1 var(--f-display);letter-spacing:-1px}
+.pk-hero .fig.long .main,.pk-over .fig.long .main{font-size:52px}
+.pk-hero .agorot,.pk-over .agorot{font:500 26px/1 var(--f-text);color:var(--c-ink-2)}
+.pk-hero .shekel,.pk-over .shekel,.proj .shekel{font:500 26px/1 "Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;margin-inline-start:6px}
 .pk-sub{font:400 14px/1.4 var(--f-text);color:var(--c-ink-2);margin-top:8px}
 .pk-sec{padding:4px var(--gutter) 8px}
 .pad .pk-sec{padding-left:0;padding-right:0}
 .pk-sec .h2{font:600 16px/1.3 var(--f-text);margin:12px 0 8px}
-.rates{display:grid;grid-template-columns:1fr 1fr;gap:14px 8px}
-.rates .n{display:block;font:600 18px/1.1 var(--f-text);white-space:nowrap}
-.rates .ils,.invbars .ils{white-space:nowrap}
-.rates span{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:3px}
+.invbars .ils{white-space:nowrap}
 .worth{display:flex;gap:12px;align-items:center;padding:8px 0}
 .worth .col{flex:1;min-width:0}
 .invest{display:block;margin:4px 0 8px;font:400 14px/1.3 var(--f-text)}
@@ -212,7 +209,26 @@ nav.tab button:not(.on) .jar{opacity:.5}
 .cheer .spot{width:36px;height:36px;border-radius:50%;background:var(--c-apricot)}
 html.reduce .cheer{animation:none}
 @keyframes cheer-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%)}}
-.screen.money-screen{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.screen.money-screen{padding-top:0;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.pk-top{position:relative;height:calc(268px + var(--sat, env(safe-area-inset-top)));overflow:hidden}
+.pk-scene{position:absolute;inset:0;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 16%, #000 62%, transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0%, #000 16%, #000 62%, transparent 100%)}
+.pk-scene .stack{position:absolute;left:0;right:0;top:0;width:100%;aspect-ratio:1170/1404}
+.pk-over{position:absolute;left:0;right:0;bottom:6px;z-index:2;text-align:center;padding:0 var(--gutter)}
+.pk-over .spot{margin:0 auto 2px}
+.rates{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--c-line);border-bottom:1px solid var(--c-line);margin-top:4px}
+.rates .cell{padding:14px 10px;text-align:right}
+.rates .cell:nth-child(odd){border-inline-end:1px solid var(--c-line)}
+.rates .cell:nth-child(-n+2){border-bottom:1px solid var(--c-line)}
+.rates .lbl{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);margin-bottom:6px}
+.rates .amt,.rates .ils{white-space:nowrap}
+.rates .ils{font:700 26px/1 var(--f-display)}
+.rates .shekel{font-family:"Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;font-size:.58em;font-weight:500}
+.worth .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.worth .amt{flex:none;white-space:nowrap}
+.worth .ils{font:600 15px/1 var(--f-text);white-space:nowrap}
+.worth .slimbar{display:block;margin-top:6px}
 .tl{position:relative;padding:8px 0 0}
 .tl:before{content:"";position:absolute;right:16px;top:20px;bottom:20px;width:2px;background:var(--c-line)}
 .tl .rail{position:absolute;right:15px;top:var(--rail-top,20px);width:4px;border-radius:2px;height:0;background:var(--c-hill);z-index:0}

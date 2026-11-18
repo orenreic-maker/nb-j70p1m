@@ -339,7 +339,7 @@ function registerPreviewWorker() {
 }
 
 function applyShot(shot) {
-  const demoShots = new Set(['home', 'sos', 'health', 'badges', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'insight', 'checkin', 'unlock']);
+  const demoShots = new Set(['home', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'insight', 'checkin', 'unlock']);
   if (demoShots.has(shot)) {
     useMemory(demoState());
     syncUnlocks(st, now());
