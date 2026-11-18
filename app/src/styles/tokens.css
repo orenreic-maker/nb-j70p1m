@@ -18,8 +18,8 @@
   --c-sky-1:#E7DCC6; --c-sky-2:#F1E6D3; /* illustration sky */
   --c-dot-on:var(--c-hill); --c-dot-off:#DED3BF;   /* dot grid (from Direction C) */
   /* — type — */
-  --f-display:"Karantina",serif;   /* OFL. headlines + hero numerals */
-  --f-text:"Plex Hebrew","IBM Plex Sans Hebrew",sans-serif; /* OFL. UI + numbers */
+  --f-display:"Karantina";   /* OFL. headlines + hero numerals. No generic fallback. */
+  --f-text:"Plex Hebrew";     /* OFL. UI text. Weights 400–700 are self-hosted woff2. */
   --t-hero:clamp(120px,38vw,168px)/.78 var(--f-display);   /* 700 */
   --t-display:clamp(44px,13vw,60px)/.92 var(--f-display);  /* 700 */
   --t-h1:clamp(32px,10vw,40px)/.95 var(--f-display);       /* 700 */

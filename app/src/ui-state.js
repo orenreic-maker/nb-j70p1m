@@ -31,6 +31,7 @@ export const ui = {
   name: '',
   cost: null,
   scroll: 0,
+  horizon: 10,
 };
 
 export function bump() { ui.rev += 1; }
