@@ -619,6 +619,7 @@ async function boot() {
     ui.pending = [];
   }
   if (shot && q.get('nobars') === '1') st.cravings = [];
+  if (shot && q.get('live') === '1') st.freezeNow = null;
   if (shot && q.get('sat')) document.documentElement.style.setProperty('--sat', `${parseInt(q.get('sat'), 10) || 0}px`);
   else if (!st.onboarded) { ui.route = 'onboard'; ui.obStep = 0; }
   render();

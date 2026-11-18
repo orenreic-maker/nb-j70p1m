@@ -5,11 +5,11 @@ import { st, now } from './store.js';
 import { ui } from './ui-state.js';
 import {
   DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, fmtLifeShort, hebDate,
-  ils, moneyAt, nf, ppcOf, prevMoney, triggerCounts, wins, checkinStreak, longestAt,
+  ils, moneyAt, nf, ppcOf, prevMoney, triggerCounts, checkinStreak, longestAt,
 } from './calc.js';
 import { HEALTH, SYSTEMS, healthSummary, withState } from './health.js';
 import { ACH, GROUPS, achVal } from './achievements.js';
-import { MESSAGES, TRIGGERS, TIPS, dailyMessage, triggerById } from './copy.js';
+import { MESSAGES, TRIGGERS, TIPS, triggerById } from './copy.js';
 import { insightFor, weekStats } from './insights.js';
 import { showPlaceholder } from './ads.js';
 import { priceLabel } from './purchases.js';
@@ -66,7 +66,59 @@ export function render() {
   $app().innerHTML = view();
   const sc = $app().querySelector('[data-scroll]');
   if (sc && ui.scroll) sc.scrollTop = ui.scroll;
+  if (ui.route === 'home') {
+    for (const el of document.querySelectorAll('[data-roll]')) rollInto(el, el.textContent);
+  }
   if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
+}
+
+/** Vertical digit strip. The shekel mark is never inside this node. */
+function rollInto(node, str) {
+  const s = String(str);
+  const reduce = document.documentElement.classList.contains('reduce');
+  if (reduce) {
+    if (node.textContent !== s) node.textContent = s;
+    node._s = s;
+    node._c = null;
+    return;
+  }
+  const ch = [...s];
+  const isD = (c) => c >= '0' && c <= '9';
+  const prev = node._s == null ? null : [...node._s];
+  const rebuild = !prev || !node._c || prev.length !== ch.length || ch.some((c, i) => isD(c) !== isD(prev[i]) || (!isD(c) && c !== prev[i]));
+  if (rebuild) {
+    node.textContent = '';
+    node._c = ch.map((c) => {
+      if (!isD(c) || reduce) {
+        const t = document.createElement('span');
+        t.className = isD(c) ? 'dg flat' : 'pch';
+        t.textContent = c;
+        node.appendChild(t);
+        return null;
+      }
+      const d = document.createElement('span');
+      d.className = 'dg';
+      const s = document.createElement('span');
+      s.className = 'strip';
+      s.innerHTML = '0123456789'.split('').map((n) => `<span>${n}</span>`).join('');
+      d.appendChild(s);
+      node.appendChild(d);
+      return s;
+    });
+  }
+  if (!reduce) {
+    ch.forEach((c, i) => {
+      const s = node._c?.[i];
+      if (s) s.style.transform = `translateY(${-(+c) * 10}%)`;
+    });
+  }
+  node._s = s;
+}
+
+function moneySplit(amount) {
+  if (amount == null || !Number.isFinite(amount)) return { main: '—', tail: '' };
+  const s = nf(Math.max(0, amount), 4);
+  return { main: s.slice(0, -2), tail: s.slice(-2) };
 }
 
 /** A short pass along milestones already reached, then rest on the one in progress. */
@@ -143,68 +195,40 @@ function home() {
   const latest = sum?.done?.length ? sum.done[sum.done.length - 1] : null;
   const has = !!(q && st.settings.cpd);
   const money = has ? moneyAt(st, t) : null;
-  const day0 = new Date(t); day0.setHours(0, 0, 0, 0);
-  const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
-  const todayMoney = has ? Math.max(0, money - moneyAt(st, day0.getTime())) : null;
-  const monthMoney = has ? Math.max(0, money - moneyAt(st, month0)) : null;
-  const life = fmtLifeShort((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
-  const unit = days === 1 ? 'יום בלי עישון' : 'ימים בלי עישון';
-  const todayKey = new Date(t).toDateString();
-  const winsToday = st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length;
-  const streak = checkinStreak(st, t);
+  const parts = moneySplit(money);
+  const cigs = has ? cigsAt(st, t) : null;
+  const life = fmtLifeShort((cigs || 0) * (st.settings.mpc || 11));
   const goal = st.settings.goalPrice || 0;
   const have = (money || 0) + prevMoney(st);
   const gp = goal ? Math.min(1, have / goal) : 0;
-  const bars = weekBars(t);
+  const wide = parts.main.length > 7 ? ' long' : '';
+  const healthLine = next
+    ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
+    : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
+  const goalLine = goal
+    ? `<button class="slim" data-act="editor" data-ed="goal"><span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}" aria-hidden="true"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>`
+    : `<button class="slim" data-act="editor" data-ed="goal"><span class="one">יעד חיסכון</span></button>`;
   return `<div class="home screen">
     <header class="home-hero">
       <div class="home-art">${sceneCompact(dark, stones)}</div>
       <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
-      <div class="hero-copy">
-        <div class="n d${String(days).length}" data-live="days">${days}</div>
-        <div class="u">${unit}</div>
-        <div class="clock"><span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
+      <div class="pocket">
+        <div class="fig${wide}" dir="ltr">
+          <bdi dir="ltr" class="main" data-roll="money">${parts.main}</bdi>
+          <bdi dir="ltr" class="tail" data-roll="agora">${parts.tail}</bdi>
+          <span class="shekel">₪</span>
+        </div>
+        <div class="k">נשארו בכיס</div>
       </div>
     </header>
     <div class="home-body">
-      <button class="hrow" data-act="go" data-go="stats">
-        ${icon('money', 22, 'var(--c-clay)')}
-        <div class="hmain"><div class="k">נשארו בכיס</div><div class="money-main">${moneyFig(money, 2, 'money')}</div></div>
-        <div class="meta">היום ${moneyFig(todayMoney, 0, 'moneyday')}<br>החודש ${moneyFig(monthMoney, 0, 'moneymo')}</div>
-        ${icon('chevron', 16, 'var(--c-ink-3)')}
-      </button>
-      <div class="split">
-        <button data-act="go" data-go="stats">${icon('no-smoke', 18, 'var(--c-clay)')}<div><b data-live="cigs">${has ? nf(Math.floor(cigsAt(st, t))) : '—'}</b><small>סיגריות שלא נדלקו</small></div></button>
-        <button data-act="go" data-go="stats">${icon('life', 18, 'var(--c-clay)')}<div><b data-live="life">${life}</b><small>זמן חיים שחזר</small></div></button>
+      <div class="meters">
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi><div class="k">בלי עישון</div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${String(Math.floor(cigs || 0)).length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 1)}</bdi><div class="k">סיגריות</div></button>
+        <button class="m" data-act="go" data-go="stats"><div class="num${life.length > 5 ? ' long' : ''}" data-live="life">${life}</div><div class="k">זמן חיים</div></button>
       </div>
-      <button class="hrow" data-act="go" data-go="health">
-        ${icon('heart', 20, 'var(--c-clay)')}
-        <div class="hmain">
-          <div class="k">${next ? `התחנה הבאה · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}` : 'הגוף'}</div>
-          <div class="line2">${next ? esc(next.title) : 'בוחרים תאריך כדי לראות התאוששות'}</div>
-          ${next ? `<div class="pb"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : ''}
-          ${latest ? `<div class="small unlocked">נפתח: ${esc(latest.when)} · ${esc(latest.title)}</div>` : ''}
-        </div>
-        ${icon('chevron', 16, 'var(--c-ink-3)')}
-      </button>
-      <button class="hrow" data-act="go" data-go="journal">
-        ${icon('wave', 20, 'var(--c-clay)')}
-        <div class="hmain"><div class="line2">היום עברו <b data-live="winstoday">${winsToday}</b> גלים</div><div class="small">רצף צ׳ק-אין ${streak} · סה״כ <span data-live="wins">${wins(st)}</span></div></div>
-        ${icon('chevron', 16, 'var(--c-ink-3)')}
-      </button>
-      <button class="hrow" data-act="editor" data-ed="goal">
-        ${icon('goal', 20, 'var(--c-clay)')}
-        <div class="hmain">
-          <div class="line2">${goal ? esc(st.settings.goalName || 'יעד חיסכון') : 'יעד חיסכון'}</div>
-          <div class="small">${goal ? `${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}` : 'אפשר לבחור יעד'}</div>
-          ${goal ? `<div class="gb${gp > 0 && gp < 0.08 ? ' seed' : ''}"><i style="width:${(Math.max(gp * 100, gp > 0 ? 2.5 : 0)).toFixed(1)}%"></i></div>` : ''}
-        </div>
-      </button>
-      <button class="hrow quote" data-act="shuffle">${icon('quote', 18, 'var(--c-hill)')}<div class="hmain line2">${esc(dailyMessage(st, t))}</div></button>
-      <div class="hrow static">
-        ${icon('chart', 18, 'var(--c-ink-2)')}
-        <div class="hmain"><div class="k">חשק בשבוע</div>${bars}</div>
-      </div>
+      ${healthLine}
+      ${goalLine}
       <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
       <div class="linkrow">
         <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
@@ -419,7 +443,7 @@ function journalToday(t, streak, moods) {
       <div style="display:flex;gap:10px;margin-top:14px"><input class="input" id="cnote" placeholder="מילה על היום (לא חובה)" value="${esc(today?.note || '')}"><button class="btn primary" data-act="checkin" style="height:48px;padding:0 18px">שמירה</button></div>
     </div>
     <button class="row" data-act="win"><div class="ib">${icon('wave', 19)}</div><div class="t">חשק עבר עכשיו<small>נגיעה אחת. אפשר לדייק אחר כך</small></div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>
-    <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">השבוע שלך</div><p class="small" style="margin-top:6px">${wk.beaten} גלים עברו · ${moneyFig(wk.saved, 0)} נחסכו · ${wk.reached.length} תחנות בגוף</p><p class="small">${esc(wk.trend)}${tip ? ' ' + esc(tip.tip) : ''}</p><button class="btn text" data-act="go" data-go="week">כרטיס השבוע</button></div>
+    <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">השבוע שלך</div><div class="k" style="margin-top:8px">חשק בשבוע</div>${weekBars(t)}<p class="small" style="margin-top:6px">${wk.beaten} גלים עברו · ${moneyFig(wk.saved, 0)} נחסכו · ${wk.reached.length} תחנות בגוף</p><p class="small">${esc(wk.trend)}${tip ? ' ' + esc(tip.tip) : ''}</p><button class="btn text" data-act="go" data-go="week">כרטיס השבוע</button></div>
     <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">מצב רוח וחשק · 14 יום</div><div style="margin-top:8px">${chart}</div></div>
     <div style="padding:14px 0"><div style="display:flex;justify-content:space-between"><div class="h2" style="font-size:15px">מתי החשק מגיע</div></div><div class="hb">${bars}</div><div class="small" style="display:flex;justify-content:space-between;margin-top:4px"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div></div>
     ${top.length ? `<div class="h2" style="font-size:15px">טריגרים שחוזרים</div>${top.map(([id, n]) => `<div style="margin-top:10px"><div class="small">${esc(triggerById(id)?.label || id)} · ${n}</div><div class="trigbar"><i style="width:${Math.round(n / max * 100)}%"></i></div></div>`).join('')}` : `<p class="small">אחרי כמה חשקים שנרשמו, הדפוס יופיע כאן.</p>`}
@@ -691,23 +715,22 @@ export function livePatch() {
   const elapsed = q ? Math.max(0, t - q) : 0;
   const has = !!(q && st.settings.cpd);
   const money = has ? moneyAt(st, t) : null;
-  const day0 = new Date(t); day0.setHours(0, 0, 0, 0);
-  const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
-  const todayKey = new Date(t).toDateString();
-  const life = fmtLifeShort((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
-  const map = {
+  const parts = moneySplit(money);
+  const cigs = has ? cigsAt(st, t) : null;
+  const rolls = {
+    money: parts.main,
+    agora: parts.tail,
     days: String(Math.floor(elapsed / DAY)),
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
-    money: has ? nf(money, 2) : '—',
-    moneyday: has ? nf(Math.max(0, money - moneyAt(st, day0.getTime())), 0) : '—',
-    moneymo: has ? nf(Math.max(0, money - moneyAt(st, month0)), 0) : '—',
-    cigs: has ? nf(Math.floor(cigsAt(st, t))) : '—',
-    life,
-    wins: String(wins(st)),
-    winstoday: String(st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length),
+    cigs: cigs == null ? '—' : nf(cigs, 1),
+    life: fmtLifeShort((cigs || 0) * (st.settings.mpc || 11)),
   };
+  for (const el of document.querySelectorAll('[data-roll]')) {
+    const next = rolls[el.dataset.roll];
+    if (next != null) rollInto(el, next);
+  }
   for (const el of document.querySelectorAll('[data-live]')) {
-    const next = map[el.dataset.live];
+    const next = rolls[el.dataset.live];
     if (next == null || el.children.length) continue;
     if (el.textContent !== next) el.textContent = next;
   }
