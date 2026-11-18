@@ -43,3 +43,33 @@ export function scene(w = 390, h = 430, dark = false, stones = 4, total = 7) {
   const orbG = `<g transform="translate(0 ${h - 430})">${orb}</g>`;
   return `<svg class="scene-svg" width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${sky}${orbG}${g}</svg>`;
 }
+
+/** Compact home band. Every shape sits inside the viewBox: the sun rests in the hill, the path ends before the edge. */
+export function sceneCompact(dark = false, stones = 4, total = 7) {
+  const w = 390;
+  const h = 118;
+  const sky = dark
+    ? `<defs><linearGradient id="skc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121815"/><stop offset="1" stop-color="#1B2420"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#skc)"/>`
+    : `<defs><linearGradient id="skc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E7DCC6"/><stop offset="1" stop-color="#F3E9D6"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#skc)"/>`;
+  const sun = dark ? '#E9A262' : '#EBA96A';
+  const hills = dark ? ['#2A3530', '#33443A', '#3E5446'] : ['#C9C9A6', '#94A88C', '#6E8768'];
+  const stone = dark ? '#EFE7D8' : '#F6EFE3';
+  const cur = dark ? '#D9714C' : '#C4623F';
+  const ink = dark ? '#A9C2A1' : '#2F3A2B';
+  const bird = dark ? '#EFE7D8' : '#2F3A2B';
+  // Sun center sits low enough that the disc and its glow stay under the top edge, and the hill covers the lower quarter.
+  const orb = `<circle cx="112" cy="64" r="32" fill="${sun}" opacity=".16"/><circle cx="112" cy="64" r="21" fill="${sun}"/>`;
+  const stars = dark
+    ? `<g fill="#EFE7D8">${[[168, 26, 1, .5], [188, 40, .8, .4], [206, 20, 1.1, .45]].map(([x, y, r, o]) => `<circle cx="${x}" cy="${y}" r="${r}" opacity="${o}"/>`).join('')}</g>`
+    : `<g fill="none" stroke="${bird}" stroke-width="1.4" stroke-linecap="round" opacity=".45"><path d="M168 30q4.5-4.5 9 0q4.5-4.5 9 0"/><path d="M196 20q3.5-3.5 7 0q3.5-3.5 7 0"/></g>`;
+  const ground = `<path d="M0 78C70 62 120 70 180 66S300 58 390 72V${h}H0Z" fill="${hills[0]}"/><path d="M0 90C80 78 150 88 230 80S330 84 390 88V${h}H0Z" fill="${hills[1]}"/><path d="M0 102C90 92 170 104 260 98S340 100 390 104V${h}H0Z" fill="${hills[2]}"/>`;
+  const pts = [[176, 104], [210, 100], [244, 97], [276, 94], [308, 92], [338, 91], [362, 91]].slice(0, total);
+  let dots = `<path d="M158 108C190 102 230 98 270 94S330 90 360 91" fill="none" stroke="${stone}" stroke-width="1.6" stroke-dasharray="1.5 6" stroke-linecap="round" opacity=".9"/>`;
+  pts.forEach(([x, y], i) => {
+    if (i < stones - 1) dots += `<circle cx="${x}" cy="${y}" r="4.2" fill="${stone}"/>`;
+    else if (i === stones - 1) dots += `<circle cx="${x}" cy="${y}" r="5.2" fill="${cur}" stroke="${stone}" stroke-width="2"/>`;
+    else dots += `<circle cx="${x}" cy="${y}" r="3.4" fill="none" stroke="${stone}" stroke-width="1.4"/>`;
+  });
+  const sprout = `<g stroke="${ink}" stroke-width="1.5" fill="none" stroke-linecap="round"><path d="M36 100V82"/><path d="M36 90c-6-1-9-6-9-11 6 1 9 5 9 11Zm0-4c5-1 8-5 8-10-5 1-8 4-8 10Z" fill="${hills[1]}"/></g>`;
+  return `<svg class="scene-svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${sky}${stars}${orb}${ground}${dots}${sprout}</svg>`;
+}
