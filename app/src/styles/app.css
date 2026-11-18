@@ -297,8 +297,37 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
 .plant.on{background:var(--c-surface);border-color:var(--c-line)}
 .plant img{display:block;width:auto;max-width:100%;object-fit:contain;object-position:center bottom}
 .plant .y{margin-top:6px;font:500 13px/1.2 var(--f-text)}
-.plant .v{margin-top:2px;font:700 21px/1 var(--f-display);white-space:nowrap}
-.plant .v .shekel{font-size:.62em;font-weight:500}
+/* One tabular face for 5, 10 and 20. Karantina digits vary by 1.6×, so a run of 8s looked stretched. */
+.plant .v,
+.plant .v [data-live]{
+  margin-top:2px;
+  display:inline;
+  font-family:var(--f-text);
+  font-weight:700;
+  font-style:normal;
+  font-stretch:normal;
+  font-size:16px;
+  line-height:1;
+  letter-spacing:0;
+  font-synthesis:none;
+  font-feature-settings:"tnum" 1;
+  font-variant-numeric:tabular-nums;
+  transform:none;
+  white-space:nowrap;
+}
+.plant .v [data-live]{margin-top:0}
+.plant .v .shekel{
+  font-family:var(--f-text);
+  font-weight:500;
+  font-style:normal;
+  font-stretch:normal;
+  font-size:13px;
+  line-height:1;
+  letter-spacing:0;
+  font-synthesis:none;
+  font-feature-settings:"tnum" 1;
+  transform:none;
+}
 .note{margin:12px 0 4px;font:400 11.5px/1.45 var(--f-text);color:var(--c-ink-3)}
 html.reduce .grow{animation:none}
 @keyframes pk-fade{from{opacity:.35}to{opacity:1}}
