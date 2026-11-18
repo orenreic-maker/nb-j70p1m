@@ -65,15 +65,27 @@ function collectUnlocks(fresh) {
   }
 }
 
+let cheerTimer = 0;
+function armCheer(item) {
+  ui.cheer = item;
+  ui.unlock = null;
+  render();
+  clearTimeout(cheerTimer);
+  if (st.freezeNow) return;
+  const reduce = document.documentElement.classList.contains('reduce');
+  cheerTimer = setTimeout(() => {
+    ui.cheer = null;
+    render();
+    showUnlock();
+  }, reduce ? 1400 : 2200);
+}
 function showUnlock() {
-  if (ui.unlock || ui.route === 'sos' || ui.overlay === 'slip' || ui.overlay === 'insight') return;
+  if (ui.cheer || ui.route === 'sos' || ui.overlay === 'slip' || ui.overlay === 'insight') return;
   const next = ui.pending.shift();
   if (!next) return;
-  ui.unlock = next;
-  ui.overlay = null;
   if (st.settings.haptics) haptic('medium');
   beep('win');
-  render();
+  armCheer(next);
 }
 
 async function logWin({ dur = 0 } = {}) {
@@ -311,7 +323,7 @@ function scheduleNotes() {
     if (at > t && at < t + 120 * DAY && plan.length < 40) {
       plan.push({
         id: 3000 + plan.length, title: 'BreathAnew', body: a.t,
-        schedule: { at: new Date(at), allowWhileIdle: true }, extra: { route: 'badges' },
+        schedule: { at: new Date(at), allowWhileIdle: true }, extra: { route: 'health' },
       });
     }
   }
@@ -341,8 +353,8 @@ function applyShot(shot) {
   if (shot === 'home') ui.route = 'home';
   if (shot === 'sos') { ui.route = 'sos'; }
   if (shot === 'health') ui.route = 'health';
-  if (shot === 'badges') ui.route = 'badges';
-  if (shot === 'unlock') ui.unlock = { kind: 'ach', item: ACH.find((a) => a.id === 'd3') };
+  if (shot === 'badges' || shot === 'pocket') ui.route = 'pocket';
+  if (shot === 'unlock') { ui.route = 'pocket'; ui.cheer = { kind: 'ach', item: ACH.find((a) => a.id === 'd3') }; }
   if (shot === 'stats') ui.route = 'stats';
   if (shot === 'journal') ui.route = 'journal';
   if (shot === 'history') { ui.route = 'journal'; ui.journalTab = 'history'; }
@@ -357,7 +369,16 @@ function applyShot(shot) {
 }
 
 const actions = {
-  go(el) { ui.route = el.dataset.go; ui.overlay = null; ui.unlock = null; render(); if (ui.route === 'share') paintCard(); syncBanner(st, ui.route, now()); },
+  go(el) {
+    const goTo = el.dataset.go === 'badges' ? 'pocket' : el.dataset.go;
+    ui.route = goTo;
+    ui.overlay = null;
+    ui.unlock = null;
+    ui.cheer = null;
+    render();
+    if (ui.route === 'share') paintCard();
+    syncBanner(st, ui.route, now());
+  },
   back() { ui.route = 'home'; ui.overlay = null; render(); },
   sos() { startSos(); },
   'sos-close'() { stopSos(); ui.route = 'home'; render(); },
@@ -415,7 +436,7 @@ const actions = {
   ach(el) {
     const a = ACH.find((x) => x.id === el.dataset.id);
     if (!a) return;
-    if (st.unlocked[a.id]) { ui.unlock = { kind: 'ach', item: a }; render(); }
+    if (st.unlocked[a.id]) armCheer({ kind: 'ach', item: a });
     else toast(`${a.t}: עוד בדרך`);
   },
   'unlock-ok'() { ui.unlock = null; render(); showUnlock(); },
@@ -560,6 +581,7 @@ document.body.addEventListener('click', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
+  if (e.target.id === 'invest') persist();
   if (e.target.id === 'qdt') ui.dateValue = e.target.value;
   if (e.target.id === 'obphoto' || e.target.id === 'edit-photo') {
     const file = e.target.files?.[0];
@@ -581,6 +603,17 @@ document.body.addEventListener('input', (e) => {
     const th = e.target.parentElement?.querySelector('.th');
     if (th) th.style.insetInlineEnd = `${e.target.value * 10}%`;
   }
+  if (e.target.id === 'invest') {
+    const v = Math.min(10, Math.max(3, Math.round(+e.target.value) || 7));
+    st.settings.investRate = v / 100;
+    const lab = document.getElementById('investV');
+    if (lab) lab.textContent = `${v}%`;
+    const sc = document.querySelector('.screen.money-screen');
+    const top = sc ? sc.scrollTop : 0;
+    render();
+    const next = document.querySelector('.screen.money-screen');
+    if (next) next.scrollTop = top;
+  }
   if (e.target.id === 'logint') {
     const entry = st.cravings.find((c) => c.id === ui.insightId);
     if (entry) entry.intensity = +e.target.value;
@@ -588,7 +621,7 @@ document.body.addEventListener('input', (e) => {
 });
 
 function tick() {
-  if (ui.route === 'home' && !ui.overlay && !ui.unlock) livePatch();
+  if ((ui.route === 'home' || ui.route === 'pocket') && !ui.overlay) livePatch();
   if (Math.floor(Date.now() / 60000) !== tick.min) {
     tick.min = Math.floor(Date.now() / 60000);
     if (st.onboarded && canPersist()) {
@@ -628,6 +661,7 @@ async function boot() {
   registerPreviewWorker();
   onNotificationOpen((extra) => {
     if (extra.route === 'checkin') { ui.route = 'journal'; ui.overlay = 'checkin'; }
+    else if (extra.route === 'badges') ui.route = 'health';
     else if (extra.route) ui.route = extra.route;
     render();
   });

@@ -15,7 +15,7 @@ export function hasSpot(name) {
   return !!SPOT[name];
 }
 
-const TAB = { home: 'today', health: 'health', badges: 'growth', journal: 'journal', settings: 'settings' };
+const TAB = { home: 'today', health: 'health', journal: 'journal', settings: 'settings' };
 
 export function tabIcon(route, on) {
   const id = TAB[route] || 'today';

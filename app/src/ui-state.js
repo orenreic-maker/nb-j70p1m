@@ -20,6 +20,7 @@ export const ui = {
   logNote: '',
   checkinMood: 0,
   unlock: null,
+  cheer: null,
   editor: null,
   rev: 0,
   dateMode: null,
