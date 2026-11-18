@@ -24,6 +24,14 @@ export function theme() {
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+/** Currency mark stays outside the ticking digits so a live update cannot erase it. */
+function moneyFig(amount, digits = 0, live = '') {
+  if (amount == null || !Number.isFinite(amount)) return '<span class="ils">—</span>';
+  const n = nf(amount, digits);
+  const num = live ? `<span data-live="${live}">${n}</span>` : n;
+  return `<span class="ils"><bdi dir="ltr">${num}<span class="shekel">₪</span></bdi></span>`;
+}
+
 function nav(active) {
   const items = [['home', 'today', 'היום'], ['health', 'body', 'הגוף'], ['badges', 'growth', 'צמיחה'], ['journal', 'journal', 'יומן'], ['settings', 'settings', 'הגדרות']];
   return `<nav class="tab">${items.map(([r, ic, l]) => `<button data-act="go" data-go="${r}" class="${active === r ? 'on' : ''}">${icon(ic, 24, 'currentColor', 1.6)}<span>${l}</span></button>`).join('')}</nav>`;
@@ -80,38 +88,101 @@ function home() {
   const stones = days <= 0 ? 1 : Math.min(8, days);
   const sum = q ? healthSummary(elapsed) : null;
   const next = sum?.next;
-  const leftWeek = days < 7 ? `עוד ${7 - days} תחנות לשבוע` : (next ? `עוד ${fmtDur(next.at - elapsed, 1)}` : 'השבוע הראשון מאחור');
-  const life = fmtLife(cigsAt(st, t) * (st.settings.mpc || 11));
-  const money = moneyAt(st, t);
+  const latest = sum?.done?.length ? sum.done[sum.done.length - 1] : null;
+  const has = !!(q && st.settings.cpd);
+  const money = has ? moneyAt(st, t) : null;
+  const day0 = new Date(t); day0.setHours(0, 0, 0, 0);
+  const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
+  const todayMoney = has ? Math.max(0, money - moneyAt(st, day0.getTime())) : null;
+  const monthMoney = has ? Math.max(0, money - moneyAt(st, month0)) : null;
+  const life = fmtLife((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
   const name = st.settings.name ? `, <b>${esc(st.settings.name)}</b>` : '';
   const unit = days === 1 ? 'יום של אוויר נקי' : 'ימים של אוויר נקי';
+  const todayKey = new Date(t).toDateString();
+  const winsToday = st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length;
+  const streak = checkinStreak(st, t);
+  const goal = st.settings.goalPrice || 0;
+  const have = (money || 0) + prevMoney(st);
+  const gp = goal ? Math.min(1, have / goal) : 0;
+  const bars = weekBars(t);
   return `<div class="home screen">
-    <div class="scene">${scene(390, 520, dark, stones)}</div>
-    <div class="hero">
-      <div class="brandrow">${wordmark(17, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 22)}</button></div>
-      <div class="hi">${greet(t)}${name}</div>
-      <div class="big"><div class="n" data-live="days">${days}</div><div class="u">${unit}<small>מאז ${q ? esc(hebDate(q)) : '—'}</small></div></div>
-      <div class="clock">${icon('clock', 17)}<span class="ltr" data-live="clock" style="font-weight:500">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span><span style="color:var(--c-ink-2)">· ${leftWeek}</span></div>
-    </div>
-    <div class="sheet">
-      <button class="quote-line" data-act="shuffle">${esc(dailyMessage(st, t))}</button>
-      <div class="stats">
-        <div class="st"><button data-act="go" data-go="stats">${icon('money', 24, 'var(--c-clay)')}<div class="v" data-live="money">${q && st.settings.cpd ? nf(money, 2) : '—'}<small>₪</small></div><div class="k">נשארו בכיס</div></button></div>
-        <div class="sep"></div>
-        <div class="st"><button data-act="go" data-go="stats">${icon('no-smoke', 24, 'var(--c-clay)')}<div class="v" data-live="cigs">${q && st.settings.cpd ? nf(Math.floor(cigsAt(st, t))) : '—'}</div><div class="k">סיגריות שלא נדלקו</div></button></div>
-        <div class="sep"></div>
-        <div class="st"><button data-act="go" data-go="stats">${icon('life', 24, 'var(--c-clay)')}<div class="v" data-live="life">${life.text}${life.unit ? `<small>${life.unit}</small>` : ''}</div><div class="k">זמן חיים שחזר</div></button></div>
+    <header class="home-top">
+      <div class="scene">${scene(390, 230, dark, stones)}</div>
+      <div class="home-head">
+        <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
+        <div class="hi">${greet(t)}${name}</div>
+        <div class="count">
+          <div class="n" data-live="days">${days}</div>
+          <div class="count-side">
+            <div class="u">${unit}</div>
+            <div class="clock">${icon('clock', 15)}<span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
+            <div class="small">${q ? `מאז ${esc(hebDate(q))}` : 'עוד אין תאריך'}</div>
+          </div>
+        </div>
       </div>
-      <button class="beat" data-act="go" data-go="badges">${icon('wave', 22, 'var(--c-clay)')}<span>גלים שניצחנו</span><b style="margin-inline-start:auto" data-live="wins">${wins(st)}</b></button>
-      ${next ? `<button class="next" data-act="go" data-go="health"><span class="nd now" aria-hidden="true">${ring(next.pct)}</span><div style="flex:1;text-align:right"><div class="h">התחנה הבאה · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</div><div class="b">${esc(next.title)}</div></div>${icon('chevron', 18, 'var(--c-ink-3)')}</button>` : `<div class="next"><div class="b">בוחרים תאריך הפסקה כדי לראות את הגוף מתאושש.</div></div>`}
-      <button class="sos" data-act="sos"><span class="w">${icon('breath', 24, 'var(--c-clay)', 1.8)}</span><span><span class="t1">רגע קשה? נושמים יחד</span><span class="t2">10 דקות, והגל עובר</span></span>${icon('chevron', 20, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
+    </header>
+    <div class="home-body">
+      <button class="hrow" data-act="go" data-go="stats">
+        ${icon('money', 22, 'var(--c-clay)')}
+        <div class="hmain"><div class="k">נשארו בכיס</div><div class="money-main">${moneyFig(money, 2, 'money')}</div></div>
+        <div class="meta">היום ${moneyFig(todayMoney, 0, 'moneyday')}<br>החודש ${moneyFig(monthMoney, 0, 'moneymo')}</div>
+        ${icon('chevron', 16, 'var(--c-ink-3)')}
+      </button>
+      <div class="split">
+        <button data-act="go" data-go="stats">${icon('no-smoke', 18, 'var(--c-clay)')}<div><b data-live="cigs">${has ? nf(Math.floor(cigsAt(st, t))) : '—'}</b><small>סיגריות שלא נדלקו</small></div></button>
+        <button data-act="go" data-go="stats">${icon('life', 18, 'var(--c-clay)')}<div><b><span data-live="life">${life.text}</span>${life.unit ? `<small class="unit">${life.unit}</small>` : ''}</b><small>זמן חיים שחזר</small></div></button>
+      </div>
+      <button class="hrow" data-act="go" data-go="health">
+        ${icon('heart', 20, 'var(--c-clay)')}
+        <div class="hmain">
+          <div class="k">${next ? `התחנה הבאה · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}` : 'הגוף'}</div>
+          <div class="line2">${next ? esc(next.title) : 'בוחרים תאריך כדי לראות התאוששות'}</div>
+          ${next ? `<div class="pb"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : ''}
+          ${latest ? `<div class="small unlocked">נפתח: ${esc(latest.when)} · ${esc(latest.title)}</div>` : ''}
+        </div>
+        ${icon('chevron', 16, 'var(--c-ink-3)')}
+      </button>
+      <button class="hrow" data-act="go" data-go="journal">
+        ${icon('wave', 20, 'var(--c-clay)')}
+        <div class="hmain"><div class="line2">היום עברו <b data-live="winstoday">${winsToday}</b> גלים</div><div class="small">רצף צ׳ק-אין ${streak} · סה״כ <span data-live="wins">${wins(st)}</span></div></div>
+        ${icon('chevron', 16, 'var(--c-ink-3)')}
+      </button>
+      <button class="hrow" data-act="editor" data-ed="goal">
+        ${icon('goal', 20, 'var(--c-clay)')}
+        <div class="hmain">
+          <div class="line2">${goal ? esc(st.settings.goalName || 'יעד חיסכון') : 'יעד חיסכון'}</div>
+          <div class="small">${goal ? `${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}` : 'אפשר לבחור יעד'}</div>
+          ${goal ? `<div class="gb"><i style="width:${(gp * 100).toFixed(1)}%"></i></div>` : ''}
+        </div>
+      </button>
+      <button class="hrow quote" data-act="shuffle">${icon('quote', 18, 'var(--c-hill)')}<div class="hmain line2">${esc(dailyMessage(st, t))}</div></button>
+      <div class="hrow static">
+        ${icon('chart', 18, 'var(--c-ink-2)')}
+        <div class="hmain"><div class="k">חשק בשבוע</div>${bars}</div>
+      </div>
+      <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span><span class="t1">רגע קשה? נושמים יחד</span><span class="t2">10 דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
       <div class="linkrow">
-        <button class="btn text" data-act="win">${icon('check', 16)}חשק עבר עכשיו</button>
+        <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
+        <button class="btn text" data-act="open-checkin">${icon('check-in', 16)}איך עבר היום</button>
         <button class="btn text" data-act="slip">${icon('slip', 16)}רגע קשה</button>
       </div>
       ${ad('home')}
     </div>
   </div>`;
+}
+
+function weekBars(t) {
+  const cells = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(t);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    const key = d.toDateString();
+    const n = st.cravings.filter((c) => new Date(c.t).toDateString() === key).length;
+    cells.push({ n, today: i === 0 });
+  }
+  const max = Math.max(1, ...cells.map((c) => c.n));
+  return `<div class="wbars" aria-hidden="true">${cells.map((c) => `<i class="${c.today ? 'now' : ''} ${c.n ? 'on' : ''}" style="height:${6 + Math.round((c.n / max) * 22)}px"></i>`).join('')}</div>`;
 }
 
 function ring(p) {
@@ -254,9 +325,9 @@ function stats() {
         <div class="dots" style="grid-template-columns:repeat(${cols},1fr);margin-top:12px">${dots}</div>
         <div class="small" style="display:flex;justify-content:space-between;margin-top:10px"><span>שורה לכל יום · ${cpd || '—'} ביום</span></div>
       </div>
-      <div class="moneyline"><div><div class="eyebrow">נחסך עד עכשיו</div><div style="font:700 60px/.9 var(--f-display);margin-top:6px">${ils(moneyAt(st, t), 2)}</div></div><div class="small" style="text-align:left">${ils(per, 2)} לסיגריה<br>${mode}</div></div>
-      <div class="led"><div><div class="v">${ils(day, 2)}</div><div class="k">ביום</div></div><div><div class="v">${ils(day * MONTH / DAY, 0)}</div><div class="k">בחודש</div></div><div><div class="v">${ils(day * YEAR / DAY, 0)}</div><div class="k">בשנה</div></div></div>
-      ${goal ? `<div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div style="display:flex;justify-content:space-between;align-items:center">${icon('goal', 18, 'var(--c-clay)')}<span style="flex:1;margin-inline-start:8px">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="small"><b style="color:var(--c-ink)">${ils(have, 0)}</b> מתוך ${ils(goal, 0)}</span></div><div class="gb"><i style="width:${(gp * 100).toFixed(1)}%"></i></div></div>` : `<button class="row" data-act="editor" data-ed="goal"><div class="t">אפשר להגדיר יעד חיסכון</div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`}
+      <div class="moneyline"><div><div class="eyebrow">נחסך עד עכשיו</div><div class="ils-display" style="margin-top:6px">${moneyFig(moneyAt(st, t), 2)}</div></div><div class="small" style="text-align:left">${moneyFig(per, 2)} לסיגריה<br>${mode}</div></div>
+      <div class="led"><div><div class="v">${moneyFig(day, 2)}</div><div class="k">ביום</div></div><div><div class="v">${moneyFig(day * MONTH / DAY, 0)}</div><div class="k">בחודש</div></div><div><div class="v">${moneyFig(day * YEAR / DAY, 0)}</div><div class="k">בשנה</div></div></div>
+      ${goal ? `<div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div style="display:flex;justify-content:space-between;align-items:center">${icon('goal', 18, 'var(--c-clay)')}<span style="flex:1;margin-inline-start:8px">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="small"><b style="color:var(--c-ink)">${moneyFig(have, 0)}</b> מתוך ${moneyFig(goal, 0)}</span></div><div class="gb"><i style="width:${(gp * 100).toFixed(1)}%"></i></div></div>` : `<button class="row" data-act="editor" data-ed="goal"><div class="t">אפשר להגדיר יעד חיסכון</div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`}
       ${cmp.map((c) => `<div style="display:flex;justify-content:space-between;padding:9px 0"><span>${c.n}</span><b>${nf(c.q, c.q >= 10 ? 0 : 1)}</b></div>`).join('')}
       ${prevMoney(st) > 0 ? `<p class="small">כולל רצפים קודמים: ${ils(have, 0)}. השיא: ${fmtDur(longestAt(st, t), 2)}.</p>` : ''}
       ${ad('stats')}
@@ -291,7 +362,7 @@ function journalToday(t, streak, moods) {
       <div style="display:flex;gap:10px;margin-top:14px"><input class="input" id="cnote" placeholder="מילה על היום (לא חובה)" value="${esc(today?.note || '')}"><button class="btn primary" data-act="checkin" style="height:48px;padding:0 18px">שמירה</button></div>
     </div>
     <button class="row" data-act="win"><div class="ib">${icon('wave', 19)}</div><div class="t">חשק עבר עכשיו<small>נגיעה אחת. אפשר לדייק אחר כך</small></div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>
-    <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">השבוע שלך</div><p class="small" style="margin-top:6px">${wk.beaten} גלים עברו · ${ils(wk.saved, 0)} נחסכו · ${wk.reached.length} תחנות בגוף</p><p class="small">${esc(wk.trend)}${tip ? ' ' + esc(tip.tip) : ''}</p><button class="btn text" data-act="go" data-go="week">כרטיס השבוע</button></div>
+    <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">השבוע שלך</div><p class="small" style="margin-top:6px">${wk.beaten} גלים עברו · ${moneyFig(wk.saved, 0)} נחסכו · ${wk.reached.length} תחנות בגוף</p><p class="small">${esc(wk.trend)}${tip ? ' ' + esc(tip.tip) : ''}</p><button class="btn text" data-act="go" data-go="week">כרטיס השבוע</button></div>
     <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">מצב רוח וחשק · 14 יום</div><div style="margin-top:8px">${chart}</div></div>
     <div style="padding:14px 0"><div style="display:flex;justify-content:space-between"><div class="h2" style="font-size:15px">מתי החשק מגיע</div></div><div class="hb">${bars}</div><div class="small" style="display:flex;justify-content:space-between;margin-top:4px"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div></div>
     ${top.length ? `<div class="h2" style="font-size:15px">טריגרים שחוזרים</div>${top.map(([id, n]) => `<div style="margin-top:10px"><div class="small">${esc(triggerById(id)?.label || id)} · ${n}</div><div class="trigbar"><i style="width:${Math.round(n / max * 100)}%"></i></div></div>`).join('')}` : `<p class="small">אחרי כמה חשקים שנרשמו, הדפוס יופיע כאן.</p>`}
@@ -377,7 +448,7 @@ function week() {
   const tip = w.top ? triggerById(w.top[0]) : null;
   return `<div class="screen"><div class="appbar"><button class="iconbtn" data-act="back" aria-label="חזרה">${icon('chevron', 16)}</button><div class="ttl">השבוע שלך</div></div>
     <div class="pad"><div class="sum"><div class="eyebrow">כרטיס שאפשר לשתף</div><div class="h1" style="margin-top:8px">${w.beaten} גלים</div><p class="lead">${esc(w.trend)}</p>
-      <div class="led" style="margin-top:8px"><div><div class="v">${ils(w.saved, 0)}</div><div class="k">נחסכו</div></div><div><div class="v">${w.reached.length}</div><div class="k">תחנות בגוף</div></div><div><div class="v">${tip ? esc(tip.label) : '—'}</div><div class="k">טריגר חוזר</div></div></div>
+      <div class="led" style="margin-top:8px"><div><div class="v">${moneyFig(w.saved, 0)}</div><div class="k">נחסכו</div></div><div><div class="v">${w.reached.length}</div><div class="k">תחנות בגוף</div></div><div><div class="v">${tip ? esc(tip.label) : '—'}</div><div class="k">טריגר חוזר</div></div></div>
       ${tip ? `<p class="small" style="margin-top:10px">${esc(tip.tip)}</p>` : ''}</div>
       <button class="btn primary" data-act="week-share" style="width:100%;margin-top:18px">${icon('share', 18)}שיתוף הכרטיס</button></div></div>`;
 }
@@ -388,7 +459,7 @@ function slipDone() {
   return `<div class="screen"><div style="height:280px">${scene(390, 320, dark, Math.min(8, Math.max(1, days)))}</div>
     <div style="margin-top:-28px;background:var(--c-bg);border-radius:30px 30px 0 0;padding:28px var(--gutter) 24px;min-height:50%"><div class="eyebrow" style="color:var(--c-hill)">נשמר</div><div class="h-display" style="margin-top:8px">השביל לא נמחק</div>
       <p class="lead" style="margin-top:10px">כל השעות בלי עישון עדיין קרו. מעידה היא נתון, לא מחיקה.</p>
-      <div class="led"><div><div class="v">${days}</div><div class="k">ימים ברצף הנוכחי</div></div><div><div class="v">${ils(moneyAt(st, now()), 0)}</div><div class="k">נחסכו ברצף</div></div><div><div class="v">${Object.keys(st.unlocked).length}</div><div class="k">הישגים נשמרו</div></div></div>
+      <div class="led"><div><div class="v">${days}</div><div class="k">ימים ברצף הנוכחי</div></div><div><div class="v">${moneyFig(moneyAt(st, now()), 0)}</div><div class="k">נחסכו ברצף</div></div><div><div class="v">${Object.keys(st.unlocked).length}</div><div class="k">הישגים נשמרו</div></div></div>
       <button class="btn primary" data-act="go" data-go="home" style="width:100%;margin-top:18px">חזרה להיום</button>
       <button class="btn ghost" data-act="sos" style="width:100%;margin-top:10px">${icon('breath', 18)}לנשום עכשיו</button>
     </div></div>`;
@@ -444,7 +515,7 @@ function obCost() {
   return `<div class="q" style="padding:12px var(--gutter) 80px"><div class="eyebrow">שלב 3 מתוך 4 · ${mode === 'pack' ? 'סיגריות בקופסה' : 'טבק לגלגול'}</div><div class="h1">כמה זה עלה?</div>
     <p class="lead">הערכה לפי מחירים נפוצים בישראל, 2026. כדאי לעדכן לפי הקנייה. אין כאן מותג קבוע.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px">${fields.map(([k, l, u, ph]) => `<div class="field" style="margin-top:10px"><label>${l}</label><div class="input"><input data-cost="${k}" inputmode="decimal" placeholder="${ph}" value="${esc(ui.cost?.[k] ?? ph)}"><span class="unit">${u}</span></div></div>`).join('')}</div>
-    <div style="margin-top:16px;padding:14px 0;border-top:1px solid var(--c-line);display:flex;justify-content:space-between;align-items:baseline"><div><div class="eyebrow">עלות לסיגריה</div><div class="small">${mode === 'pack' ? 'מחיר קופסה לחלק לכמות' : `טבק ${ils(p.tob || 0, 2)} · ניירות ${p.pap ? ils(p.pap, 2) : '—'} · פילטר ${p.fil ? ils(p.fil, 2) : '—'}`}</div></div><div id="ppc-live" style="font:700 48px/1 var(--f-display)">${ils(total, 2)}</div></div>
+    <div style="margin-top:16px;padding:14px 0;border-top:1px solid var(--c-line);display:flex;justify-content:space-between;align-items:baseline"><div><div class="eyebrow">עלות לסיגריה</div><div class="small">${mode === 'pack' ? 'מחיר קופסה לחלק לכמות' : `טבק ${ils(p.tob || 0, 2)} · ניירות ${p.pap ? ils(p.pap, 2) : '—'} · פילטר ${p.fil ? ils(p.fil, 2) : '—'}`}</div></div><div class="ils-display">${moneyFig(total, 2)}</div></div>
     <p class="small">בלי פילטר או בלי נייר? מאפסים את המחיר.</p>
   </div>`;
 }
@@ -561,22 +632,27 @@ export function livePatch() {
   const t = now();
   const q = st.settings.quitAt;
   const elapsed = q ? Math.max(0, t - q) : 0;
+  const has = !!(q && st.settings.cpd);
+  const money = has ? moneyAt(st, t) : null;
+  const day0 = new Date(t); day0.setHours(0, 0, 0, 0);
+  const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
+  const todayKey = new Date(t).toDateString();
+  const life = fmtLife((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
   const map = {
     days: String(Math.floor(elapsed / DAY)),
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
-    money: q && st.settings.cpd ? nf(moneyAt(st, t), 2) : '—',
-    cigs: q && st.settings.cpd ? nf(Math.floor(cigsAt(st, t))) : '—',
+    money: has ? nf(money, 2) : '—',
+    moneyday: has ? nf(Math.max(0, money - moneyAt(st, day0.getTime())), 0) : '—',
+    moneymo: has ? nf(Math.max(0, money - moneyAt(st, month0)), 0) : '—',
+    cigs: has ? nf(Math.floor(cigsAt(st, t))) : '—',
+    life: life.text,
     wins: String(wins(st)),
+    winstoday: String(st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length),
   };
-  const life = fmtLife(cigsAt(st, t) * (st.settings.mpc || 11));
   for (const el of document.querySelectorAll('[data-live]')) {
-    const k = el.dataset.live;
-    if (k === 'life') {
-      const text = life.unit ? `${life.text}` : life.text;
-      if (el.childNodes.length === 1 && el.textContent !== text + (life.unit || '')) {
-        el.innerHTML = `${life.text}${life.unit ? `<small>${life.unit}</small>` : ''}`;
-      }
-    } else if (map[k] != null && el.textContent !== map[k]) el.textContent = map[k];
+    const next = map[el.dataset.live];
+    if (next == null || el.children.length) continue;
+    if (el.textContent !== next) el.textContent = next;
   }
 }
 

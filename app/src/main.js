@@ -365,6 +365,7 @@ const actions = {
   'sos-slip'() { stopSos(); ui.route = 'home'; ui.overlay = 'slip'; render(); },
   breath(el) { ui.breathMode = el.dataset.mode; if (sos) { clearTimeout(sos.timer); render(); runPhase(0); } else render(); },
   win() { logWin({ dur: 0 }); },
+  'open-checkin'() { ui.overlay = 'checkin'; ui.route = 'home'; render(); },
   slip() { ui.overlay = 'slip'; render(); },
   'overlay-off'() { ui.overlay = null; ui.editor = null; render(); },
   'slip-n'(el) { ui.slipCigs = Math.max(0, Math.min(40, ui.slipCigs + (+el.dataset.d || 0))); render(); },

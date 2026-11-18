@@ -19,19 +19,61 @@ nav.tab button.on{color:var(--c-ink);font-weight:500}
 .welcome-scene{height:46vh;min-height:280px;max-height:520px}
 .welcome-sheet{margin-top:-28px;background:var(--c-bg);border-radius:30px 30px 0 0;padding:28px var(--gutter) 0;position:relative}
 
-.home .scene{position:relative;height:360px;min-height:360px}
-.home .hero{position:relative;z-index:2;margin-top:-186px;padding:0 var(--gutter) 0}
-.home .brandrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.home .hi{font:400 15px/1.4 var(--f-text);color:var(--c-ink-2)}
+.screen.home{overflow:auto}
+.home-top{position:relative;height:150px;overflow:hidden;flex:none}
+.home-top .scene{position:absolute;top:0;left:0;right:0;height:230px}
+.home-top .scene-svg{width:100%;height:230px}
+.home-head{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;padding:6px var(--gutter) 8px}
+.home .brandrow{display:flex;justify-content:space-between;align-items:center}
+.home .hi{font:400 13px/1.3 var(--f-text);color:var(--c-ink-2);margin-top:2px}
 .home .hi b{font-weight:500;color:var(--c-ink)}
-.home .big{display:flex;align-items:flex-end;gap:12px}
-.home .big .n{font:700 118px/.78 var(--f-display);letter-spacing:-2px}
-.home .big .u{font:400 clamp(28px,8vw,40px)/.9 var(--f-display);padding-bottom:8px}
-.home .big .u small{display:block;font:400 14px/1.3 var(--f-text);color:var(--c-ink-2);margin-top:6px}
-.home .clock{font:400 16px/1 var(--f-text);margin-top:12px;display:flex;gap:8px;align-items:center}
-.home .sheet{position:relative;z-index:2;margin-top:6px;background:var(--c-bg);border-radius:30px 30px 0 0;padding:16px var(--gutter) calc(88px + env(safe-area-inset-bottom))}
-.screen.home{overflow:hidden}
-.next .b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.home .count{margin-top:auto;display:flex;align-items:flex-end;gap:10px}
+.home .count .n{font:700 68px/.78 var(--f-display);letter-spacing:-1px}
+.home .count-side .u{font:400 22px/1 var(--f-display)}
+.home .clock{display:flex;gap:6px;align-items:center;font:500 15px/1 var(--f-text);margin-top:2px}
+.home-body{padding:2px var(--gutter) calc(78px + env(safe-area-inset-bottom))}
+.hrow{display:flex;align-items:flex-start;gap:10px;width:100%;padding:9px 0;border-bottom:1px solid var(--c-line);text-align:right}
+.hrow.static{align-items:center}
+.hrow .hmain{flex:1;min-width:0}
+.hrow .k{font:400 12px/1.2 var(--f-text);color:var(--c-ink-2)}
+.hrow .line2{font:500 14.5px/1.35 var(--f-text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hrow .meta{font:400 12px/1.35 var(--f-text);color:var(--c-ink-2);text-align:left;white-space:nowrap}
+.hrow .pb{margin-top:6px}
+.hrow .small{margin-top:3px}
+.hrow .unlocked{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.money-main .ils{font:500 28px/1 var(--f-text)}
+.shekel{font-family:"Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;font-weight:500}
+.ils{unicode-bidi:isolate}
+.ils-display{font:700 56px/.9 var(--f-display)}
+.ils-display .shekel{font-size:.62em;font-weight:500}
+.split{display:flex;border-bottom:1px solid var(--c-line)}
+.split button{flex:1;display:flex;gap:8px;align-items:center;padding:9px 0;text-align:right}
+.split button+button{border-inline-start:1px solid var(--c-line);padding-inline-start:12px}
+.split b{display:block;font:500 20px/1 var(--f-text)}
+.split small{display:block;font:400 12px/1.3 var(--f-text);color:var(--c-ink-2);font-weight:400;margin-top:3px}
+.split .unit{display:inline;font-size:13px;margin-inline-start:2px}
+.wbars{display:flex;align-items:flex-end;gap:5px;height:28px;margin-top:6px}
+.wbars i{flex:1;border-radius:2px;background:var(--c-line);min-height:4px}
+.wbars i.on{background:var(--c-sage)}
+.wbars i.now{background:var(--c-clay)}
+.home .sos{margin-top:10px;height:54px}
+.home .ad{height:50px;margin-top:10px}
+@media (max-height:720px){
+  .home-top{height:96px}
+  .home .hi{display:none}
+  .home .count .n{font-size:48px}
+  .home .count-side .u{font-size:16px}
+  .home .count-side .small{display:none}
+  .hrow{padding:4px 0}
+  .hrow .line2{-webkit-line-clamp:1}
+  .money-main .ils{font-size:22px}
+  .split b{font-size:17px}
+  .home .sos{height:44px;margin-top:6px}
+  .home .ad{height:40px;margin-top:4px}
+  .linkrow{margin-top:2px;gap:6px}
+  .wbars{height:16px;margin-top:2px}
+  .home-body{padding-bottom:70px}
+}
 .stats{display:flex}
 .st{flex:1;min-width:0}
 .st .v{font:500 25px/1 var(--f-text);letter-spacing:-.3px;margin-top:8px}
