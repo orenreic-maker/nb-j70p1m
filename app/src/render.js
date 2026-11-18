@@ -4,7 +4,7 @@ import { scene, sceneCompact, wordmark, WORDMARK } from './scene.js';
 import { st, now } from './store.js';
 import { ui } from './ui-state.js';
 import {
-  DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, fmtLifeShort, hebDate,
+  DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, hebDate,
   ils, moneyAt, nf, ppcOf, prevMoney, triggerCounts, checkinStreak, longestAt,
 } from './calc.js';
 import { HEALTH, SYSTEMS, healthSummary, withState } from './health.js';
@@ -116,9 +116,20 @@ function rollInto(node, str) {
 }
 
 function moneySplit(amount) {
-  if (amount == null || !Number.isFinite(amount)) return { main: '—', tail: '' };
-  const s = nf(Math.max(0, amount), 4);
-  return { main: s.slice(0, -2), tail: s.slice(-2) };
+  if (amount == null || !Number.isFinite(amount)) return { whole: '—', agorot: '' };
+  const s = nf(Math.max(0, amount), 2);
+  const i = s.lastIndexOf('.');
+  if (i < 0) return { whole: s, agorot: '' };
+  return { whole: s.slice(0, i), agorot: s.slice(i) };
+}
+
+function lifeParts(minutes) {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return { n: String(m), u: 'דקות' };
+  const h = Math.floor(m / 60);
+  if (h < 48) return { n: `${h}:${String(m % 60).padStart(2, '0')}`, u: 'שעות' };
+  const d = Math.max(1, Math.round(h / 24));
+  return { n: String(d), u: d === 1 ? 'יום' : 'ימים' };
 }
 
 /** A short pass along milestones already reached, then rest on the one in progress. */
@@ -196,12 +207,14 @@ function home() {
   const has = !!(q && st.settings.cpd);
   const money = has ? moneyAt(st, t) : null;
   const parts = moneySplit(money);
-  const cigs = has ? cigsAt(st, t) : null;
-  const life = fmtLifeShort((cigs || 0) * (st.settings.mpc || 11));
+  const cigs = has ? Math.floor(cigsAt(st, t)) : null;
+  const life = lifeParts((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
   const goal = st.settings.goalPrice || 0;
   const have = (money || 0) + prevMoney(st);
   const gp = goal ? Math.min(1, have / goal) : 0;
-  const wide = parts.main.length > 7 ? ' long' : '';
+  const wide = parts.whole.length > 4 ? ' long' : '';
+  const dayUnit = days === 1 ? 'יום' : 'ימים';
+  const cigUnit = cigs === 1 ? 'סיגריה' : 'סיגריות';
   const healthLine = next
     ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
     : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
@@ -214,8 +227,8 @@ function home() {
       <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
       <div class="pocket">
         <div class="fig${wide}" dir="ltr">
-          <bdi dir="ltr" class="main" data-roll="money">${parts.main}</bdi>
-          <bdi dir="ltr" class="tail" data-roll="agora">${parts.tail}</bdi>
+          <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
+          <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
           <span class="shekel">₪</span>
         </div>
         <div class="k">נשארו בכיס</div>
@@ -223,12 +236,13 @@ function home() {
     </header>
     <div class="home-body">
       <div class="meters">
-        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi><div class="k">בלי עישון</div></button>
-        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${String(Math.floor(cigs || 0)).length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 1)}</bdi><div class="k">סיגריות</div></button>
-        <button class="m" data-act="go" data-go="stats"><div class="num${life.length > 5 ? ' long' : ''}" data-live="life">${life}</div><div class="k">זמן חיים</div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi><div class="u" data-live="daysu">${dayUnit}</div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${String(cigs ?? '').length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u" data-live="cigu">${cigUnit}</div></button>
+        <button class="m" data-act="go" data-go="stats"><bdi dir="ltr" class="num${life.n.length > 4 ? ' long' : ''}" data-roll="life">${life.n}</bdi><div class="u" data-live="lifeu">${life.u}</div></button>
       </div>
       ${healthLine}
       ${goalLine}
+      <div class="home-foot">
       <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
       <div class="linkrow">
         <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
@@ -236,6 +250,7 @@ function home() {
         <button class="btn text" data-act="slip">${icon('slip', 16)}רגע קשה</button>
       </div>
       ${ad('home')}
+      </div>
     </div>
   </div>`;
 }
@@ -716,14 +731,19 @@ export function livePatch() {
   const has = !!(q && st.settings.cpd);
   const money = has ? moneyAt(st, t) : null;
   const parts = moneySplit(money);
-  const cigs = has ? cigsAt(st, t) : null;
+  const cigsN = has ? Math.floor(cigsAt(st, t)) : null;
+  const life = lifeParts((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
+  const days = Math.floor(elapsed / DAY);
   const rolls = {
-    money: parts.main,
-    agora: parts.tail,
-    days: String(Math.floor(elapsed / DAY)),
+    money: parts.whole,
+    agorot: parts.agorot,
+    days: String(days),
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
-    cigs: cigs == null ? '—' : nf(cigs, 1),
-    life: fmtLifeShort((cigs || 0) * (st.settings.mpc || 11)),
+    cigs: cigsN == null ? '—' : nf(cigsN, 0),
+    life: life.n,
+    daysu: days === 1 ? 'יום' : 'ימים',
+    cigu: cigsN === 1 ? 'סיגריה' : 'סיגריות',
+    lifeu: life.u,
   };
   for (const el of document.querySelectorAll('[data-roll]')) {
     const next = rolls[el.dataset.roll];

@@ -19,19 +19,19 @@ nav.tab button.on{color:var(--c-ink);font-weight:500}
 .welcome-scene{height:46vh;min-height:280px;max-height:520px}
 .welcome-sheet{margin-top:-28px;background:var(--c-bg);border-radius:30px 30px 0 0;padding:28px var(--gutter) 0;position:relative}
 
-.screen.home{overflow:auto}
-.home-hero{position:relative;margin:0;padding:0}
-.home-art{position:relative;height:calc(188px + var(--sat, env(safe-area-inset-top)));overflow:hidden;
+.screen.home{overflow:auto;display:flex;flex-direction:column}
+.home-hero{position:relative;margin:0;padding:0;flex:none}
+.home-art{position:relative;height:calc(214px + var(--sat, env(safe-area-inset-top)));overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 14%, #000 52%, transparent 100%);
   mask-image:linear-gradient(to bottom, transparent 0%, #000 14%, #000 52%, transparent 100%)}
 .home-art .scene-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 .home-hero .brandrow{position:absolute;top:calc(8px + var(--sat, env(safe-area-inset-top)));left:0;right:0;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:0 var(--gutter)}
 .pocket{position:absolute;left:0;right:0;bottom:2px;z-index:2;text-align:center;padding:0 var(--gutter)}
 .pocket .fig{display:flex;align-items:baseline;justify-content:center;gap:1px;direction:ltr}
-.pocket .main{font:700 68px/1 var(--f-display);letter-spacing:-1px}
-.pocket .fig.long .main{font-size:48px}
-.pocket .tail{font:700 22px/1 var(--f-display);letter-spacing:-.5px;opacity:.72;margin-inline-start:2px}
-.pocket .shekel{font:500 26px/1 "Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;margin-inline-start:8px}
+.pocket .main{font:700 92px/1 var(--f-display);letter-spacing:-1.5px}
+.pocket .fig.long .main{font-size:64px}
+.pocket .agorot{font:500 28px/1 var(--f-text);color:var(--c-ink-2);letter-spacing:0;margin-inline-start:1px}
+.pocket .shekel{font:500 30px/1 "Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;margin-inline-start:8px}
 [data-roll]{white-space:nowrap}
 .meters .num,.meters .clk{display:block}
 .pocket .k{font:500 13px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:2px}
@@ -40,15 +40,16 @@ nav.tab button.on{color:var(--c-ink);font-weight:500}
 .dg .strip span{display:block;height:1em;text-align:center}
 html.reduce .dg .strip{transition:none}
 .pch,.dg.flat{display:inline-block;line-height:1;font-family:"Plex Hebrew","IBM Plex Sans Hebrew",sans-serif;font-weight:500}
-.home-body{padding:4px var(--gutter) calc(86px + env(safe-area-inset-bottom))}
-.meters{display:flex}
-.meters .m{flex:1;min-width:0;text-align:center;padding:8px 4px 10px}
+.home-body{flex:1;display:flex;flex-direction:column;padding:8px var(--gutter) calc(90px + env(safe-area-inset-bottom))}
+.home-foot{margin-top:auto}
+.meters{display:flex;margin-top:10px}
+.meters .m{flex:1;min-width:0;text-align:center;padding:16px 4px 18px}
 .meters .m+.m{border-inline-start:1px solid var(--c-line)}
-.meters .num{font:700 34px/1 var(--f-display);letter-spacing:-.5px}
-.meters .num.long{font-size:26px}
-.meters .clk{font:500 15px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:4px}
-.meters .k{font:400 11px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:4px}
-.slim{display:flex;align-items:center;gap:10px;width:100%;padding:8px 0;border-top:1px solid var(--c-line);text-align:right}
+.meters .num{font:700 52px/1 var(--f-display);letter-spacing:-.5px}
+.meters .num.long{font-size:36px}
+.meters .clk{font:500 16px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:6px}
+.meters .u{font:400 13px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:6px}
+.slim{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-top:1px solid var(--c-line);text-align:right}
 .slim .col{flex:1;min-width:0}
 .slim .one{display:block;font:500 14px/1.25 var(--f-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slim .sub{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -80,8 +81,8 @@ html.reduce .dg .strip{transition:none}
 .wbars i{flex:1;border-radius:2px;background:var(--c-line);min-height:4px}
 .wbars i.on{background:var(--c-sage)}
 .wbars i.now{background:var(--c-clay)}
-.home .sos{margin-top:12px;height:auto;min-height:56px;padding-block:8px}
-.home .ad{height:44px;margin-top:8px}
+.home .sos{margin-top:0;height:auto;min-height:60px;padding-block:10px}
+.home .ad{height:48px;margin-top:12px}
 .sos-copy{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
 .sos .t1,.sos .t2{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .week-empty{font:400 13px/1.35 var(--f-text);color:var(--c-ink-2);margin-top:4px}
@@ -89,11 +90,17 @@ html.reduce .dg .strip{transition:none}
 .gb.seed i:after{content:"";position:absolute;top:50%;inset-inline-end:-1px;width:10px;height:10px;border-radius:50%;background:var(--c-apricot);transform:translateY(-50%)}
 .linkrow{margin-top:6px}
 @media (max-height:720px){
-  .home-art{height:calc(150px + var(--sat, env(safe-area-inset-top)))}
-  .pocket .main{font-size:58px}
+  .home-art{height:calc(148px + var(--sat, env(safe-area-inset-top)))}
+  .pocket .main{font-size:60px}
   .pocket .fig.long .main{font-size:44px}
-  .meters .num{font-size:28px}
-  .home .sos{margin-top:8px}
+  .pocket .agorot{font-size:18px}
+  .pocket .shekel{font-size:22px}
+  .meters{margin-top:2px}
+  .meters .m{padding:8px 4px}
+  .meters .num{font-size:32px}
+  .meters .num.long{font-size:24px}
+  .slim{padding:8px 0}
+  .home-foot{margin-top:8px}
   .home .ad{height:36px;margin-top:6px}
 }
 .stats{display:flex}
