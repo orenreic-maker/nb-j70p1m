@@ -176,6 +176,20 @@ function moneySplit(amount) {
   return { whole: s.slice(0, i), agorot: s.slice(i) };
 }
 
+/** d3–d6 from the integer digits only, so the font can shrink without moving the axis. */
+function digitClass(whole) {
+  const n = String(whole).replace(/\D/g, '').length;
+  if (n >= 6) return ' d6';
+  if (n >= 5) return ' d5';
+  if (n >= 4) return ' d4';
+  return ' d3';
+}
+
+/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. */
+function moneyCluster(whole, agorot) {
+  return `<div class="fig${digitClass(whole)}" dir="ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
+}
+
 function lifeParts(minutes) {
   const m = Math.max(0, Math.round(minutes));
   if (m < 60) return { n: String(m), a: 'דקות חיים', b: 'שחזרו' };
@@ -268,7 +282,6 @@ function home() {
   const gp = goal ? Math.min(1, have / goal) : 0;
   const stage = stageFor(days);
   const scene = livingScene(days, dark);
-  const wide = parts.whole.length > 4 ? ' long' : '';
   const dayA = days === 1 ? 'יום' : 'ימים';
   const cigA = cigs === 1 ? 'סיגריה' : 'סיגריות';
   const healthLine = next
@@ -283,11 +296,7 @@ function home() {
       <div class="stage-tag">יום ${days} · ${stage.label}</div>
       <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${spot('share', 28) || icon('share', 20)}</button></div>
       <button class="pocket" data-act="go" data-go="pocket">
-        <div class="fig${wide}" dir="ltr">
-          <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
-          <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
-          <span class="shekel">₪</span>
-        </div>
+        ${moneyCluster(parts.whole, parts.agorot)}
         <div class="k">נשארו בכיס</div>
       </button>
     </header>
@@ -411,8 +420,7 @@ function pocket() {
   const big = futureValue(saved, monthly, GROWTH_RATE, horizon);
   const goal = st.settings.goalPrice || 0;
   const gp = goal ? saved / goal : 0;
-  const digits = String(parts.whole).replace(/\D/g, '').length;
-  const wide = digits >= 5 ? ' long' : '';
+  const projText = nf(big, 0);
   const moneyAch = ACH.filter((a) => a.group === 'money');
   const earned = moneyAch.filter((a) => st.unlocked[a.id]).length;
   const nextId = moneyAch.find((a) => !st.unlocked[a.id])?.id;
@@ -435,11 +443,7 @@ function pocket() {
       ${pocketStage()}
       <h1 class="pk-title">הכיס</h1>
       <div class="pk-money">
-        <div class="fig${wide}" dir="ltr">
-          <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
-          <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
-          <span class="shekel">₪</span>
-        </div>
+        ${moneyCluster(parts.whole, parts.agorot)}
         <p class="pk-hour">נשארו בכיס · <span class="hot">עוד <bdi dir="ltr"><span data-live="hour">${hourText(day)}</span><span class="shekel">₪</span></bdi> בכל שעה</span></p>
       </div>
     </header>
@@ -467,7 +471,7 @@ function pocket() {
         return `<div class="wrow"><div class="wring">${arcRing(64, p, reached)}${pocketSpot(w.art, 50)}</div><div class="wmeta"><div class="t">${w.name}</div><div class="s${reached ? ' got' : ''}">${sub}</div></div><div class="wstat">${stat}</div></div>`;
       }).join('')}
       <div class="pk-hd"><h2>אם זה היה מושקע</h2></div>
-      <div class="grow-wrap"><div class="grow" dir="ltr"><bdi dir="ltr" class="main" data-roll="proj">${nf(big, 0)}</bdi><span class="shekel">₪</span></div></div>
+      <div class="grow-wrap"><div class="grow${digitClass(projText)}" dir="ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="proj">${projText}</bdi><span class="tails"><span class="shekel">₪</span></span></span></div></div>
       <p class="grow-cap">בעוד ${horizon} שנים, אם כל חודש נכנס למדד רחב</p>
       <div class="plants">${plants.map(([y, art, h]) => {
         const v = futureValue(saved, monthly, GROWTH_RATE, y);
