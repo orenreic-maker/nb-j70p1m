@@ -26,6 +26,7 @@ export function blank() {
       checkinHour: 21,
       healthNotifs: true,
       hideDoneHealth: false,
+      seenStage: '',
       adsRemoved: false,
     },
     cravings: [],
@@ -82,6 +83,7 @@ export function migrate(raw) {
   s.dailyCheckin = s.dailyCheckin !== false;
   s.healthNotifs = s.healthNotifs !== false;
   s.hideDoneHealth = !!s.hideDoneHealth;
+  s.seenStage = typeof s.seenStage === 'string' ? s.seenStage : '';
   s.adsRemoved = !!s.adsRemoved;
   s.checkinHour = Number.isFinite(+s.checkinHour) ? Math.min(23, Math.max(0, Math.round(+s.checkinHour))) : 21;
   return {
