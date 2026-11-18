@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { ACH, syncUnlocks } from './achievements.js';
 import { adsAllowed, syncBanner } from './ads.js';
-import { DAY, ils, ppcOf } from './calc.js';
+import { DAY, HOUR, MIN, ils, ppcOf } from './calc.js';
 import { HEALTH } from './health.js';
 import { applyCheckin, applySlip, applyWin, blank, migrate } from './model.js';
 import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, sharePayload, syncNotifications, writeCacheFile } from './native.js';
@@ -406,7 +406,11 @@ const actions = {
   },
   shuffle() { st.shuf = (st.shuf || 0) + 1; persist(); },
   hfilter(el) { ui.healthFilter = el.dataset.id; render(); },
-  hpast() { ui.healthPast = !ui.healthPast; render(); },
+  hpast() {
+    st.settings.hideDoneHealth = !st.settings.hideDoneHealth;
+    render();
+    save();
+  },
   link(el) { openLink(el.dataset.url); },
   ach(el) {
     const a = ACH.find((x) => x.id === el.dataset.id);
@@ -601,6 +605,21 @@ async function boot() {
   const shot = q.get('shot');
   if (shot) applyShot(shot);
   if (q.get('theme') === 'dark' || q.get('theme') === 'light') st.settings.theme = q.get('theme');
+  if (shot && q.get('days')) {
+    const days = Math.max(0, parseInt(q.get('days'), 10) || 0);
+    if (!st.freezeNow) st.freezeNow = Date.now();
+    st.settings.quitAt = st.freezeNow - days * DAY - (5 * HOUR + 23 * MIN + 3000);
+    const target = parseFloat(q.get('money') || '');
+    if (Number.isFinite(target) && target > 0) {
+      const elapsed = st.freezeNow - st.settings.quitAt;
+      const ppc = ppcOf(st.settings);
+      if (ppc > 0 && elapsed > 0) st.settings.cpd = target / ((elapsed / DAY) * ppc);
+    }
+    syncUnlocks(st, st.freezeNow);
+    ui.pending = [];
+  }
+  if (shot && q.get('nobars') === '1') st.cravings = [];
+  if (shot && q.get('sat')) document.documentElement.style.setProperty('--sat', `${parseInt(q.get('sat'), 10) || 0}px`);
   else if (!st.onboarded) { ui.route = 'onboard'; ui.obStep = 0; }
   render();
   applyStatusBar(theme());

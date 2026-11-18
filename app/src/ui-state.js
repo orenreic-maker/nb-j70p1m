@@ -4,7 +4,6 @@ export const ui = {
   overlay: null,
   journalTab: 'today',
   healthFilter: 'all',
-  healthPast: false,
   breathMode: '478',
   shareShape: 'story',
   shareMoney: true,

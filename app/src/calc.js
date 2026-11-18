@@ -171,6 +171,17 @@ export function fmtLife(minutes) {
   return { text: fmtDur(m * MIN, 2), unit: '' };
 }
 
+/** One short token so the home row never wraps. */
+export function fmtLifeShort(minutes) {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m} דק׳`;
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  if (h < 48) return `${h}:${String(min).padStart(2, '0')}`;
+  const d = Math.max(1, Math.round(h / 24));
+  return d === 1 ? 'יום' : `${d} ימים`;
+}
+
 export function hebDate(t) {
   try {
     return new Date(t).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^יום\s+/, '');

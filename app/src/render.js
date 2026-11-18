@@ -4,7 +4,7 @@ import { scene, sceneCompact, wordmark, WORDMARK } from './scene.js';
 import { st, now } from './store.js';
 import { ui } from './ui-state.js';
 import {
-  DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, fmtLife, greet, hebDate,
+  DAY, MONTH, YEAR, cigsAt, costParts, esc, fmtClock, fmtDur, fmtLifeShort, hebDate,
   ils, moneyAt, nf, ppcOf, prevMoney, triggerCounts, wins, checkinStreak, longestAt,
 } from './calc.js';
 import { HEALTH, SYSTEMS, healthSummary, withState } from './health.js';
@@ -50,16 +50,68 @@ function screen(body, tab) {
   return `${body}${tab ? nav(tab) : ''}${overlay()}${toast()}`;
 }
 
+let lastRoute = '';
+let introFrame = 0;
+
 export function render() {
+  cancelAnimationFrame(introFrame);
   const dark = theme() === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.content = dark ? '#151B17' : '#F6EFE3';
   document.documentElement.classList.toggle('reduce', !st.settings?.celebrate || matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const enterHealth = ui.route === 'health' && lastRoute !== 'health';
+  lastRoute = ui.route;
   $app().innerHTML = view();
   const sc = $app().querySelector('[data-scroll]');
   if (sc && ui.scroll) sc.scrollTop = ui.scroll;
+  if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
+}
+
+/** A short pass along milestones already reached, then rest on the one in progress. */
+function runHealthIntro() {
+  const screen = document.querySelector('#app .screen.health');
+  const nowEl = document.querySelector('.tl .it.now') || document.querySelector('.tl .it.done:last-of-type');
+  const reduce = document.documentElement.classList.contains('reduce');
+  const place = (el) => {
+    if (!el || !screen) return 0;
+    const a = el.getBoundingClientRect();
+    const b = screen.getBoundingClientRect();
+    return a.top - b.top + screen.scrollTop;
+  };
+  const settle = () => {
+    if (!nowEl || !screen) return;
+    screen.scrollTop = Math.max(0, place(nowEl) - screen.clientHeight * 0.32);
+  };
+  if (reduce || !screen) { settle(); return; }
+  const done = [...document.querySelectorAll('.tl .it.done')];
+  const rail = document.querySelector('.tl .rail');
+  if (!done.length) { settle(); return; }
+  const tl = document.querySelector('.tl');
+  tl.classList.add('arm');
+  const tlBox = tl.getBoundingClientRect();
+  const mid = (el) => {
+    const b = el.getBoundingClientRect();
+    return b.top - tlBox.top + b.height / 2;
+  };
+  const from = mid(done[0].querySelector('.nd'));
+  const to = mid(done[done.length - 1].querySelector('.nd'));
+  tl.style.setProperty('--rail-top', `${from}px`);
+  const dest = Math.max(0, place(nowEl) - screen.clientHeight * 0.32);
+  const hold = 200;
+  const travel = 1000;
+  const t0 = performance.now();
+  const step = (t) => {
+    const p = t - t0 < hold ? 0 : Math.min(1, (t - t0 - hold) / travel);
+    const n = Math.round(p * done.length);
+    done.forEach((el, i) => el.classList.toggle('lit', i < n));
+    if (rail) rail.style.height = `${Math.max(0, (to - from) * p)}px`;
+    screen.scrollTop = dest * p;
+    if (p < 1) introFrame = requestAnimationFrame(step);
+    else screen.scrollTop = dest;
+  };
+  introFrame = requestAnimationFrame(step);
 }
 
 function view() {
@@ -95,9 +147,8 @@ function home() {
   const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
   const todayMoney = has ? Math.max(0, money - moneyAt(st, day0.getTime())) : null;
   const monthMoney = has ? Math.max(0, money - moneyAt(st, month0)) : null;
-  const life = fmtLife((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
-  const name = st.settings.name ? `, <b>${esc(st.settings.name)}</b>` : '';
-  const unit = days === 1 ? 'יום של אוויר נקי' : 'ימים של אוויר נקי';
+  const life = fmtLifeShort((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
+  const unit = days === 1 ? 'יום בלי עישון' : 'ימים בלי עישון';
   const todayKey = new Date(t).toDateString();
   const winsToday = st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length;
   const streak = checkinStreak(st, t);
@@ -107,18 +158,12 @@ function home() {
   const bars = weekBars(t);
   return `<div class="home screen">
     <header class="home-hero">
-      <div class="home-art">
-        ${sceneCompact(dark, stones)}
-        <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
-      </div>
-      <div class="home-type">
-        <div class="n" data-live="days">${days}</div>
-        <div class="count-side">
-          <div class="hi">${greet(t)}${name}</div>
-          <div class="u">${unit}</div>
-          <div class="clock">${icon('clock', 15)}<span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
-          <div class="small since">${q ? `מאז ${esc(hebDate(q))}` : 'עוד אין תאריך'}</div>
-        </div>
+      <div class="home-art">${sceneCompact(dark, stones)}</div>
+      <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 20)}</button></div>
+      <div class="hero-copy">
+        <div class="n d${String(days).length}" data-live="days">${days}</div>
+        <div class="u">${unit}</div>
+        <div class="clock"><span class="ltr" data-live="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</span></div>
       </div>
     </header>
     <div class="home-body">
@@ -130,7 +175,7 @@ function home() {
       </button>
       <div class="split">
         <button data-act="go" data-go="stats">${icon('no-smoke', 18, 'var(--c-clay)')}<div><b data-live="cigs">${has ? nf(Math.floor(cigsAt(st, t))) : '—'}</b><small>סיגריות שלא נדלקו</small></div></button>
-        <button data-act="go" data-go="stats">${icon('life', 18, 'var(--c-clay)')}<div><b><span data-live="life">${life.text}</span>${life.unit ? `<small class="unit">${life.unit}</small>` : ''}</b><small>זמן חיים שחזר</small></div></button>
+        <button data-act="go" data-go="stats">${icon('life', 18, 'var(--c-clay)')}<div><b data-live="life">${life}</b><small>זמן חיים שחזר</small></div></button>
       </div>
       <button class="hrow" data-act="go" data-go="health">
         ${icon('heart', 20, 'var(--c-clay)')}
@@ -152,7 +197,7 @@ function home() {
         <div class="hmain">
           <div class="line2">${goal ? esc(st.settings.goalName || 'יעד חיסכון') : 'יעד חיסכון'}</div>
           <div class="small">${goal ? `${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}` : 'אפשר לבחור יעד'}</div>
-          ${goal ? `<div class="gb"><i style="width:${(gp * 100).toFixed(1)}%"></i></div>` : ''}
+          ${goal ? `<div class="gb${gp > 0 && gp < 0.08 ? ' seed' : ''}"><i style="width:${(Math.max(gp * 100, gp > 0 ? 2.5 : 0)).toFixed(1)}%"></i></div>` : ''}
         </div>
       </button>
       <button class="hrow quote" data-act="shuffle">${icon('quote', 18, 'var(--c-hill)')}<div class="hmain line2">${esc(dailyMessage(st, t))}</div></button>
@@ -160,7 +205,7 @@ function home() {
         ${icon('chart', 18, 'var(--c-ink-2)')}
         <div class="hmain"><div class="k">חשק בשבוע</div>${bars}</div>
       </div>
-      <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span><span class="t1">רגע קשה? נושמים יחד</span><span class="t2">10 דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
+      <button class="sos" data-act="sos"><span class="w">${icon('breath', 22, 'var(--c-clay)', 1.8)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
       <div class="linkrow">
         <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
         <button class="btn text" data-act="open-checkin">${icon('check-in', 16)}איך עבר היום</button>
@@ -180,6 +225,9 @@ function weekBars(t) {
     const key = d.toDateString();
     const n = st.cravings.filter((c) => new Date(c.t).toDateString() === key).length;
     cells.push({ n, today: i === 0 });
+  }
+  if (cells.every((c) => c.n === 0)) {
+    return `<p class="week-empty">אחרי החשק הראשון יופיע כאן השבוע.</p>`;
   }
   const max = Math.max(1, ...cells.map((c) => c.n));
   return `<div class="wbars" aria-hidden="true">${cells.map((c) => `<i class="${c.today ? 'now' : ''} ${c.n ? 'on' : ''}" style="height:${6 + Math.round((c.n / max) * 22)}px"></i>`).join('')}</div>`;
@@ -232,10 +280,14 @@ function health() {
   const list = all.filter((h) => ui.healthFilter === 'all' || h.system === ui.healthFilter);
   const done = list.filter((h) => h.status === 'done');
   const rest = list.filter((h) => h.status !== 'done');
-  const showDone = ui.healthPast ? done : [];
+  const hidden = !!st.settings.hideDoneHealth;
+  const showDone = hidden ? [] : done;
   const next = sum.next;
   const latest = sum.latest[sum.latest.length - 1];
-  return `<div class="screen">
+  const fold = done.length
+    ? `<button class="fold" data-act="hpast">${hidden ? `הצגת ${done.length} שלבים שהושגו` : 'הסתרת שלבים שהושגו'}</button>`
+    : '';
+  return `<div class="screen health">
     <div class="appbar"><div class="ttl">הגוף מתאושש</div><div class="eyebrow" style="text-align:left">${sum.doneCount} מתוך ${sum.total}<br>שלבים</div></div>
     <p class="lead" style="padding:4px var(--gutter) 0">מה קורה בגוף מאז הסיגריה האחרונה. הערכות כלליות, לא ייעוץ רפואי.</p>
     <div class="sum"><div class="eyebrow">מה קורה בגוף עכשיו</div>
@@ -243,21 +295,26 @@ function health() {
       ${next ? `<div class="small" style="margin-top:6px">התחנה הבאה · ${esc(next.when)} · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</div><div class="pb" style="margin-top:10px"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : `<div class="small" style="margin-top:6px">כל התחנות שבמאגר כבר מאחור.</div>`}
     </div>
     <div class="filters">${SYSTEMS.map((s) => `<button data-act="hfilter" data-id="${s.id}" class="${ui.healthFilter === s.id ? 'on' : ''}">${s.label}</button>`).join('')}</div>
-    <div class="pad"><button class="small" data-act="hpast" style="margin:10px 0;color:var(--c-ink-3)">${done.length ? (ui.healthPast ? 'הסתרת שלבים שהושלמו' : `${done.length} שלבים קודמים`) : ''}</button>
-      <div class="tl">${showDone.map(healthItem).join('')}${rest.map(healthItem).join('')}</div>
+    <div class="pad">${fold}
+      <div class="tl"><i class="rail" aria-hidden="true"></i>${showDone.map(healthItem).join('')}${rest.map(healthItem).join('')}</div>
       ${ad('health')}
     </div>
   </div>`;
 }
 
 function healthItem(h) {
-  const node = h.status === 'done'
+  const done = h.status === 'done';
+  const q = st.settings.quitAt;
+  const ts = done && q ? q + h.at : null;
+  const got = ts ? hebDate(ts) : '';
+  const node = done
     ? `<div class="nd done">${icon('check', 14, 'var(--c-bg)', 2.2)}</div>`
     : h.status === 'now'
       ? `<div class="nd now">${ring(h.pct || 0)}</div>`
       : `<div class="nd next"></div>`;
   const ic = h.status === 'next' ? 'var(--c-ink-3)' : 'var(--c-clay)';
-  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${icon(h.icon, 16, ic)}<span>${esc(h.when)}</span>${h.status === 'now' ? '<b class="tag">עכשיו</b>' : ''}</div><div class="t">${esc(h.title)}</div><button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
+  const mark = h.status === 'now' ? '<b class="tag">עכשיו</b>' : done ? '<b class="tag got">הושג</b>' : '';
+  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${icon(h.icon, 16, ic)}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">הושג · ${esc(got)}</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
 }
 
 function badges() {
@@ -637,7 +694,7 @@ export function livePatch() {
   const day0 = new Date(t); day0.setHours(0, 0, 0, 0);
   const month0 = new Date(day0.getFullYear(), day0.getMonth(), 1).getTime();
   const todayKey = new Date(t).toDateString();
-  const life = fmtLife((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
+  const life = fmtLifeShort((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
   const map = {
     days: String(Math.floor(elapsed / DAY)),
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
@@ -645,7 +702,7 @@ export function livePatch() {
     moneyday: has ? nf(Math.max(0, money - moneyAt(st, day0.getTime())), 0) : '—',
     moneymo: has ? nf(Math.max(0, money - moneyAt(st, month0)), 0) : '—',
     cigs: has ? nf(Math.floor(cigsAt(st, t))) : '—',
-    life: life.text,
+    life,
     wins: String(wins(st)),
     winstoday: String(st.cravings.filter((c) => c.won && new Date(c.t).toDateString() === todayKey).length),
   };
