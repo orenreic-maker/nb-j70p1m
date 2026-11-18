@@ -406,7 +406,11 @@ const actions = {
   },
   shuffle() { st.shuf = (st.shuf || 0) + 1; persist(); },
   hfilter(el) { ui.healthFilter = el.dataset.id; render(); },
-  hpast() { ui.healthPast = !ui.healthPast; render(); },
+  hpast() {
+    st.settings.hideDoneHealth = !st.settings.hideDoneHealth;
+    render();
+    save();
+  },
   link(el) { openLink(el.dataset.url); },
   ach(el) {
     const a = ACH.find((x) => x.id === el.dataset.id);

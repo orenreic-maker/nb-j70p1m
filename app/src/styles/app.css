@@ -111,18 +111,28 @@ nav.tab button.on{color:var(--c-ink);font-weight:500}
 .why .ph img{width:100%;height:100%;object-fit:cover}
 .sos-foot{margin-top:auto;padding:8px var(--gutter) calc(24px + env(safe-area-inset-bottom))}
 
-.tl{position:relative;padding:8px var(--gutter) 0}
-.tl:before{content:"";position:absolute;right:44px;top:20px;bottom:20px;width:2px;background:var(--c-line)}
+.screen.health{padding-top:var(--sat, env(safe-area-inset-top))}
+.tl{position:relative;padding:8px 0 0}
+.tl:before{content:"";position:absolute;right:16px;top:20px;bottom:20px;width:2px;background:var(--c-line)}
+.tl .rail{position:absolute;right:15px;top:var(--rail-top,20px);width:4px;border-radius:2px;height:0;background:var(--c-hill);z-index:0}
 .it{display:flex;gap:16px;padding:12px 0;position:relative;z-index:1}
 .nd{width:34px;height:34px;flex:none;display:grid;place-items:center}
-.nd.done{width:22px;height:22px;margin:6px;border-radius:50%;background:var(--c-hill);color:var(--c-bg)}
+.nd.done{width:28px;height:28px;margin:3px;border-radius:50%;background:var(--c-hill);color:var(--c-bg)}
 .nd.next{width:14px;height:14px;margin:10px;border-radius:50%;background:var(--c-bg);border:2px solid var(--c-line)}
 .nd.now{width:34px;height:34px}
 .tx{flex:1;padding-bottom:12px;border-bottom:1px solid var(--c-line)}
 .w{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--f-text);color:var(--c-ink-2)}
+.it.done .w,.it.done .t{color:var(--c-ink)}
 .tag{font:600 11px/1 var(--f-text);background:var(--c-clay);color:var(--c-clay-ink);border-radius:8px;padding:3px 7px}
+.tag.got{background:var(--c-hill);color:var(--c-bg)}
+.gotwhen{font:500 12.5px/1.3 var(--f-text);color:var(--c-hill);margin-top:4px}
 .t{font:500 16px/1.4 var(--f-text);margin-top:7px}
 .it.next .t{color:var(--c-ink-2)}
+.fold{display:block;margin:14px 0 2px;font:500 13px/1.2 var(--f-text);color:var(--c-ink-2);text-decoration:underline;text-underline-offset:3px}
+.tl.arm .it.done{opacity:.38}
+.tl.arm .it.done .nd{transform:scale(.8)}
+.tl.arm .it.done.lit{opacity:1}
+.tl.arm .it.done.lit .nd{transform:scale(1)}
 .srcbtn{font:400 11.5px/1 var(--f-text);color:var(--c-ink-3);margin-top:6px;text-decoration:underline}
 .pb{height:5px;border-radius:3px;background:var(--c-mist);margin-top:12px;overflow:hidden}
 .pb i{display:block;height:100%;background:var(--c-clay)}

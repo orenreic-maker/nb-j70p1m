@@ -50,16 +50,68 @@ function screen(body, tab) {
   return `${body}${tab ? nav(tab) : ''}${overlay()}${toast()}`;
 }
 
+let lastRoute = '';
+let introFrame = 0;
+
 export function render() {
+  cancelAnimationFrame(introFrame);
   const dark = theme() === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.content = dark ? '#151B17' : '#F6EFE3';
   document.documentElement.classList.toggle('reduce', !st.settings?.celebrate || matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const enterHealth = ui.route === 'health' && lastRoute !== 'health';
+  lastRoute = ui.route;
   $app().innerHTML = view();
   const sc = $app().querySelector('[data-scroll]');
   if (sc && ui.scroll) sc.scrollTop = ui.scroll;
+  if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
+}
+
+/** A short pass along milestones already reached, then rest on the one in progress. */
+function runHealthIntro() {
+  const screen = document.querySelector('#app .screen.health');
+  const nowEl = document.querySelector('.tl .it.now') || document.querySelector('.tl .it.done:last-of-type');
+  const reduce = document.documentElement.classList.contains('reduce');
+  const place = (el) => {
+    if (!el || !screen) return 0;
+    const a = el.getBoundingClientRect();
+    const b = screen.getBoundingClientRect();
+    return a.top - b.top + screen.scrollTop;
+  };
+  const settle = () => {
+    if (!nowEl || !screen) return;
+    screen.scrollTop = Math.max(0, place(nowEl) - screen.clientHeight * 0.32);
+  };
+  if (reduce || !screen) { settle(); return; }
+  const done = [...document.querySelectorAll('.tl .it.done')];
+  const rail = document.querySelector('.tl .rail');
+  if (!done.length) { settle(); return; }
+  const tl = document.querySelector('.tl');
+  tl.classList.add('arm');
+  const tlBox = tl.getBoundingClientRect();
+  const mid = (el) => {
+    const b = el.getBoundingClientRect();
+    return b.top - tlBox.top + b.height / 2;
+  };
+  const from = mid(done[0].querySelector('.nd'));
+  const to = mid(done[done.length - 1].querySelector('.nd'));
+  tl.style.setProperty('--rail-top', `${from}px`);
+  const dest = Math.max(0, place(nowEl) - screen.clientHeight * 0.32);
+  const hold = 200;
+  const travel = 1000;
+  const t0 = performance.now();
+  const step = (t) => {
+    const p = t - t0 < hold ? 0 : Math.min(1, (t - t0 - hold) / travel);
+    const n = Math.round(p * done.length);
+    done.forEach((el, i) => el.classList.toggle('lit', i < n));
+    if (rail) rail.style.height = `${Math.max(0, (to - from) * p)}px`;
+    screen.scrollTop = dest * p;
+    if (p < 1) introFrame = requestAnimationFrame(step);
+    else screen.scrollTop = dest;
+  };
+  introFrame = requestAnimationFrame(step);
 }
 
 function view() {
@@ -228,10 +280,14 @@ function health() {
   const list = all.filter((h) => ui.healthFilter === 'all' || h.system === ui.healthFilter);
   const done = list.filter((h) => h.status === 'done');
   const rest = list.filter((h) => h.status !== 'done');
-  const showDone = ui.healthPast ? done : [];
+  const hidden = !!st.settings.hideDoneHealth;
+  const showDone = hidden ? [] : done;
   const next = sum.next;
   const latest = sum.latest[sum.latest.length - 1];
-  return `<div class="screen">
+  const fold = done.length
+    ? `<button class="fold" data-act="hpast">${hidden ? `הצגת ${done.length} שלבים שהושגו` : 'הסתרת שלבים שהושגו'}</button>`
+    : '';
+  return `<div class="screen health">
     <div class="appbar"><div class="ttl">הגוף מתאושש</div><div class="eyebrow" style="text-align:left">${sum.doneCount} מתוך ${sum.total}<br>שלבים</div></div>
     <p class="lead" style="padding:4px var(--gutter) 0">מה קורה בגוף מאז הסיגריה האחרונה. הערכות כלליות, לא ייעוץ רפואי.</p>
     <div class="sum"><div class="eyebrow">מה קורה בגוף עכשיו</div>
@@ -239,21 +295,26 @@ function health() {
       ${next ? `<div class="small" style="margin-top:6px">התחנה הבאה · ${esc(next.when)} · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</div><div class="pb" style="margin-top:10px"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : `<div class="small" style="margin-top:6px">כל התחנות שבמאגר כבר מאחור.</div>`}
     </div>
     <div class="filters">${SYSTEMS.map((s) => `<button data-act="hfilter" data-id="${s.id}" class="${ui.healthFilter === s.id ? 'on' : ''}">${s.label}</button>`).join('')}</div>
-    <div class="pad"><button class="small" data-act="hpast" style="margin:10px 0;color:var(--c-ink-3)">${done.length ? (ui.healthPast ? 'הסתרת שלבים שהושלמו' : `${done.length} שלבים קודמים`) : ''}</button>
-      <div class="tl">${showDone.map(healthItem).join('')}${rest.map(healthItem).join('')}</div>
+    <div class="pad">${fold}
+      <div class="tl"><i class="rail" aria-hidden="true"></i>${showDone.map(healthItem).join('')}${rest.map(healthItem).join('')}</div>
       ${ad('health')}
     </div>
   </div>`;
 }
 
 function healthItem(h) {
-  const node = h.status === 'done'
+  const done = h.status === 'done';
+  const q = st.settings.quitAt;
+  const ts = done && q ? q + h.at : null;
+  const got = ts ? hebDate(ts) : '';
+  const node = done
     ? `<div class="nd done">${icon('check', 14, 'var(--c-bg)', 2.2)}</div>`
     : h.status === 'now'
       ? `<div class="nd now">${ring(h.pct || 0)}</div>`
       : `<div class="nd next"></div>`;
   const ic = h.status === 'next' ? 'var(--c-ink-3)' : 'var(--c-clay)';
-  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${icon(h.icon, 16, ic)}<span>${esc(h.when)}</span>${h.status === 'now' ? '<b class="tag">עכשיו</b>' : ''}</div><div class="t">${esc(h.title)}</div><button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
+  const mark = h.status === 'now' ? '<b class="tag">עכשיו</b>' : done ? '<b class="tag got">הושג</b>' : '';
+  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${icon(h.icon, 16, ic)}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">הושג · ${esc(got)}</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
 }
 
 function badges() {
