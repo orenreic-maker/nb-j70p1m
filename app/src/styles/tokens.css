@@ -1,0 +1,58 @@
+/* BreathAnew design tokens — Direction B "אוויר פתוח" (open air)
+   Product name: BreathAnew (approved 2026-11-18). Wordmark is one swappable element (brand.json / lib.WORDMARK). */
+:root{
+  /* — colour: light (day) — */
+  --c-bg:#F6EFE3;          /* cream: app background */
+  --c-surface:#FBF6EE;     /* raised surface (sheets, inputs) */
+  --c-sunk:#EFE6D6;        /* inset / field fill */
+  --c-line:#E4D8C4;        /* hairline divider (A discipline: dividers, not cards) */
+  --c-ink:#2F3A2B;         /* deep olive: primary text, primary button */
+  --c-ink-2:#6F7468;       /* secondary text */
+  --c-ink-3:#9A9B8E;       /* tertiary / disabled */
+  --c-sage:#94A88C;        /* nature accent, progress */
+  --c-hill:#6E8768;        /* deep sage (illustration, success) */
+  --c-mist:#DCE5DD;        /* calm tint (info, health) */
+  --c-apricot:#EBA96A;     /* sun, highlights, achievements */
+  --c-clay:#C4623F;        /* action/urgency: SOS, slip — used sparingly */
+  --c-clay-ink:#FFF6EC;    /* text on clay */
+  --c-sky-1:#E7DCC6; --c-sky-2:#F1E6D3; /* illustration sky */
+  --c-dot-on:var(--c-hill); --c-dot-off:#DED3BF;   /* dot grid (from Direction C) */
+  /* — type — */
+  --f-display:"Karantina",serif;   /* OFL. headlines + hero numerals */
+  --f-text:"Plex Hebrew","IBM Plex Sans Hebrew",sans-serif; /* OFL. UI + numbers */
+  --t-hero:clamp(120px,38vw,168px)/.78 var(--f-display);   /* 700 */
+  --t-display:clamp(44px,13vw,60px)/.92 var(--f-display);  /* 700 */
+  --t-h1:clamp(32px,10vw,40px)/.95 var(--f-display);       /* 700 */
+  --t-h2:20px/1.3 var(--f-text);    /* 600 */
+  --t-num:26px/1 var(--f-text);     /* 500, tabular */
+  --t-body:15px/1.5 var(--f-text);  /* 400 */
+  --t-small:13px/1.45 var(--f-text);/* 400 */
+  --t-label:12px/1.2 var(--f-text); /* 500 */
+  /* — spacing (4pt) — */
+  --s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-7:28px;--s-8:32px;--s-10:40px;--s-12:48px;
+  --gutter:28px;
+  /* — radii — */
+  --r-sm:10px;--r-md:16px;--r-lg:24px;--r-sheet:30px;--r-pill:999px;
+  /* — elevation (one level only; no glass, no glow) — */
+  --e-1:0 1px 2px rgba(47,58,43,.10),0 8px 24px -12px rgba(47,58,43,.18);
+  /* — motion — */
+  --ease-out:cubic-bezier(.22,.8,.3,1);
+  --ease-breath:cubic-bezier(.45,0,.25,1);   /* inhale/exhale curve */
+  --d-fast:160ms;--d-base:280ms;--d-slow:480ms;
+  --breath-478:4s 7s 8s;   /* inhale / hold / exhale */
+  --breath-box:4s 4s 4s 4s;
+}
+[data-theme="dark"]{
+  /* — colour: dark (dusk) — warm night, not black; same roles — */
+  --c-bg:#151B17; --c-surface:#1C2420; --c-sunk:#222B26; --c-line:#2C3630;
+  --c-ink:#EFE7D8; --c-ink-2:#A9AE9F; --c-ink-3:#6E7568;
+  --c-sage:#8FA88A; --c-hill:#A9C2A1; --c-mist:#223029;
+  --c-apricot:#E9A262; --c-clay:#D9714C; --c-clay-ink:#1A0F0A;
+  --c-sky-1:#1B2421; --c-sky-2:#232C27;
+  --c-dot-on:#A9C2A1; --c-dot-off:#2C3630;
+}
+/* Reduced motion: breath shape cross-fades opacity instead of scaling;
+   no confetti/particles (static sunburst instead); counters tick without easing. */
+@media (prefers-reduced-motion:reduce){
+  :root{--d-fast:0ms;--d-base:0ms;--d-slow:120ms}
+}

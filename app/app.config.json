@@ -1,0 +1,13 @@
+{
+  "appId": "com.orenreic.breathanew",
+  "appName": "BreathAnew",
+  "adsEnabled": false,
+  "removeAdsProductId": "com.orenreic.breathanew.removeads",
+  "removeAdsPriceLabel": "₪14.90",
+  "admob": {
+    "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+    "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+    "androidBanner": "ca-app-pub-3940256099942544/6300978111",
+    "iosBanner": "ca-app-pub-3940256099942544/2934735716"
+  }
+}

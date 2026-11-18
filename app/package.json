@@ -1,0 +1,40 @@
+{
+  "name": "breathanew",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BreathAnew — Hebrew quit-smoking app for iOS and Android",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:preview": "node scripts/build-preview.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "test": "node --test test/*.test.js",
+    "cap:config": "node scripts/write-cap-config.mjs",
+    "cap:sync": "npm run cap:config && npm run build && npx cap sync",
+    "android:debug": "npm run cap:config && npm run build && npx cap sync android && cd android && ./gradlew assembleDebug --no-daemon",
+    "ios:sync": "npm run cap:config && npm run build && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.4.2",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@capgo/native-purchases": "^8.9.16"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.6.2",
+    "puppeteer-core": "^24.15.0",
+    "vite": "^6.3.5"
+  }
+}
