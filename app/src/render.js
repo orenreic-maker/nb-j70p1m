@@ -33,6 +33,7 @@ function moneyFig(amount, digits = 0, live = '') {
   const num = live ? `<span data-live="${live}">${n}</span>` : n;
   return `<span class="ils"><bdi dir="ltr">${num}<span class="shekel">₪</span></bdi></span>`;
 }
+function shekelHtml(n, d = 0) { return moneyFig(n, d); }
 
 function nav(active) {
   const items = [['home', 'היום'], ['health', 'הגוף'], ['pocket', 'הכיס'], ['journal', 'יומן'], ['settings', 'הגדרות']];
@@ -235,7 +236,7 @@ function view() {
     case 'onboard': return onboard();
     case 'sos': return sos();
     case 'health': return screen(health(), 'health');
-    case 'badges':
+    case 'badges': return screen(badges(), 'pocket');
     case 'pocket': return screen(pocket(), 'pocket');
     case 'stats': return screen(stats(), 'home');
     case 'journal': return screen(journal(), 'journal');
@@ -312,12 +313,13 @@ function home() {
 }
 
 const WORTH = [
-  { name: 'ארוחה משפחתית', price: 250, art: 'jar' },
-  { name: 'מיכל דלק', price: 400, art: 'goal' },
-  { name: 'יום כיף', price: 800, art: 'sprout' },
-  { name: 'סוף שבוע', price: 2000, art: 'medal' },
-  { name: 'חופשה', price: 6000, art: 'share' },
+  { name: 'ארוחה משפחתית', price: 250, art: 'spot-meal' },
+  { name: 'מיכל דלק', price: 400, art: 'spot-fuel' },
+  { name: 'יום כיף לילדים', price: 800, art: 'spot-funday' },
+  { name: 'סוף שבוע', price: 2000, art: 'spot-getaway' },
+  { name: 'חופשה', price: 6000, art: 'spot-vacation' },
 ];
+const GROWTH_RATE = 0.07;
 
 function unitsOf(cigs) {
   const s = st.settings;
@@ -334,17 +336,65 @@ function monthlyRate() {
   return (st.settings.cpd || 0) * ppcOf(st.settings) * (MONTH / DAY);
 }
 
-function investRate() {
-  const r = +st.settings.investRate;
-  return Math.min(0.1, Math.max(0.03, Number.isFinite(r) ? r : 0.07));
-}
-
 function badgeRow(groups) {
   const items = ACH.filter((a) => groups.includes(a.group));
   return `<div class="badgelets">${items.map((a) => {
     const on = !!st.unlocked[a.id];
     return `<button class="badgelet ${on ? 'on' : ''}" data-act="ach" data-id="${a.id}">${spot('medal', 40)}<span>${esc(a.t)}</span></button>`;
   }).join('')}</div>`;
+}
+
+function rateText(n) {
+  return n < 100 ? nf(n, 1) : nf(Math.round(n), 0);
+}
+
+function hourText(day) {
+  const h = day / 24;
+  if (h < 10) return nf(h, 2);
+  if (h < 100) return nf(h, 1);
+  return nf(Math.round(h), 0);
+}
+
+function timesPhrase(times) {
+  const k = Math.floor(times);
+  if (k <= 0) return '';
+  if (k === 1) return 'כבר פעם אחת';
+  if (k === 2) return 'כבר פעמיים';
+  return `כבר ${k} פעמים`;
+}
+
+function arcRing(size, p, done) {
+  const sw = 3;
+  const r = (size - sw) / 2 - 0.5;
+  const c = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(1, p || 0));
+  const dash = done ? c : c * clamped;
+  const col = done ? 'var(--c-hill)' : 'var(--c-apricot)';
+  const mid = size / 2;
+  return `<svg class="arc" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${mid}" cy="${mid}" r="${r}" fill="none" stroke="var(--c-line)" stroke-width="${sw}"/><circle cx="${mid}" cy="${mid}" r="${r}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${(c - dash).toFixed(2)}" transform="rotate(-90 ${mid} ${mid})"/></svg>`;
+}
+
+function pocketSpot(name, size) {
+  const base = `art/pocket/spots/${name}.webp`;
+  const x2 = `art/pocket/spots/${name}@2x.webp`;
+  return `<img class="spot" alt="" width="${size}" height="${size}" src="${base}" srcset="${base} 1x, ${x2} 2x">`;
+}
+
+/** Dedicated jar + olive sapling. Canvas px in hero.json, divided by 3. */
+function pocketStage() {
+  const layers = [
+    ['sky day', '00-sky', 0, 0, 1170, 1080],
+    ['sky dusk', '00-sky-dusk', 0, 0, 1170, 1080],
+    ['glow sun', '10-sun-glow', 245, 20, 680, 680],
+    ['sun', '11-sun-disc', 415, 190, 340, 340],
+    ['cloud a', '20-cloud-2', 70, 150, 220, 161],
+    ['cloud b', '20-cloud-3', 960, 330, 160, 129],
+    ['bird a', '25-bird-1', 300, 110, 54, 60],
+    ['bird b', '25-bird-2', 232, 165, 40, 37],
+    ['hills', '30-hills', 0, 0, 1170, 1080],
+    ['jar', '40-jar', 445, 135, 279, 600],
+  ];
+  return `<div class="pk-stage" aria-hidden="true">${layers.map(([cls, file, x, y, w, h]) => `<img class="ly ${cls}" alt="" src="art/pocket/hero/${file}.webp" style="left:${x / 3}px;top:${y / 3}px;width:${w / 3}px;height:${h / 3}px">`).join('')}</div>`;
 }
 
 function pocket() {
@@ -356,61 +406,74 @@ function pocket() {
   const units = unitsOf(cigs);
   const day = (st.settings.cpd || 0) * ppcOf(st.settings);
   const saved = savedNow(t);
-  const rate = investRate();
   const monthly = monthlyRate();
-  const years = [1, 5, 10, 20];
-  const fvs = years.map((y) => futureValue(saved, monthly, rate, y));
-  const max = Math.max(1, ...fvs);
+  const horizon = [5, 10, 20].includes(ui.horizon) ? ui.horizon : 10;
+  const big = futureValue(saved, monthly, GROWTH_RATE, horizon);
   const goal = st.settings.goalPrice || 0;
-  const gp = goal ? Math.min(1, saved / goal) : 0;
-  const wide = parts.whole.length > 4 ? ' long' : '';
-  const days = st.settings.quitAt ? Math.floor(Math.max(0, t - st.settings.quitAt) / DAY) : 0;
-  const dark = theme() === 'dark';
-  const scene = livingScene(days, dark);
+  const gp = goal ? saved / goal : 0;
+  const digits = String(parts.whole).replace(/\D/g, '').length;
+  const wide = digits >= 5 ? ' long' : '';
+  const moneyAch = ACH.filter((a) => a.group === 'money');
+  const earned = moneyAch.filter((a) => st.unlocked[a.id]).length;
+  const nextId = moneyAch.find((a) => !st.unlocked[a.id])?.id;
+  const rates = [
+    ['ליום', day],
+    ['לשבוע', day * 7],
+    ['לחודש', day * MONTH / DAY],
+    ['לשנה', day * YEAR / DAY],
+  ];
+  const plants = [
+    [5, 'growth-1', 64],
+    [10, 'growth-2', 86],
+    [20, 'growth-3', 104],
+  ];
+  const goalCard = goal
+    ? `<button class="gcard" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gmid"><span class="gname">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="gbar"><i style="width:${Math.min(100, gp * 100).toFixed(1)}%"></i></span><span class="gsub">${shekelHtml(Math.floor(saved), 0)} מתוך ${shekelHtml(goal, 0)}</span></span><bdi dir="ltr" class="gpct">${Math.round(gp * 100)}%</bdi></button>`
+    : `<button class="gcard empty" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gname">בחרו יעד חיסכון</span></button>`;
   return `<div class="screen money-screen">
-    <header class="pk-top">
-      <div class="living pk-scene${dark ? ' dark' : ''}" aria-hidden="true">${scene.html}</div>
-      <div class="pk-over">
-        ${spot('sprout', 52)}
+    <header class="pk-hero">
+      ${pocketStage()}
+      <h1 class="pk-title">הכיס</h1>
+      <div class="pk-money">
         <div class="fig${wide}" dir="ltr">
           <bdi dir="ltr" class="main" data-roll="money">${parts.whole}</bdi>
           <bdi dir="ltr" class="agorot" data-roll="agorot">${parts.agorot}</bdi>
           <span class="shekel">₪</span>
         </div>
-        <div class="k">נשארו בכיס</div>
-        <div class="pk-sub"><bdi dir="ltr" data-roll="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו · <bdi dir="ltr">${nf(units.n, 1)}</bdi> ${units.label}</div>
+        <p class="pk-hour">נשארו בכיס · <span class="hot">עוד <bdi dir="ltr"><span data-live="hour">${hourText(day)}</span><span class="shekel">₪</span></bdi> בכל שעה</span></p>
       </div>
     </header>
-    <div class="pk-sec">
-      <div class="h2">בקצב הנוכחי</div>
-      <div class="rates">${[
-        ['ליום', day],
-        ['לשבוע', day * 7],
-        ['לחודש', day * MONTH / DAY],
-        ['לשנה', day * YEAR / DAY],
-      ].map(([l, n]) => `<div class="cell"><span class="lbl">${l}</span><bdi dir="ltr" class="amt">${moneyFig(n, n >= 100 ? 0 : 1)}</bdi></div>`).join('')}</div>
-    </div>
-    <div class="pk-sec">
-      <div class="h2">מה זה שווה</div>
-      ${goal ? `<button class="slim goal" data-act="editor" data-ed="goal">${spot('jar', 40)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(saved, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>` : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 40)}<span class="one">בחרו יעד חיסכון</span></button>`}
+    <p class="facts"><bdi dir="ltr" class="n" data-roll="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו • <bdi dir="ltr" class="n" data-live="pouches">${nf(units.n, 1)}</bdi> ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'}</p>
+    <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span><bdi dir="ltr" class="amt"><span data-live="rate${i}">${rateText(n)}</span><span class="shekel">₪</span></bdi></div>`).join('')}</div>
+    <div class="pk-block">
+      <div class="pk-hd"><h2>הישגי כיס</h2><div class="aside">${earned} מתוך ${moneyAch.length} · <button data-act="go" data-go="badges">כל ההישגים</button></div></div>
+      <div class="pk-medals">${moneyAch.map((a) => {
+        const on = !!st.unlocked[a.id];
+        const p = Math.max(0, Math.min(1, achVal(a, st, t) / a.v));
+        const status = on ? 'got' : a.id === nextId ? 'next' : 'lock';
+        return `<button class="pk-medal ${status}" data-act="ach" data-id="${a.id}"><span class="box">${status === 'next' ? arcRing(58, p, false) : ''}${spot('medal', 46)}</span><span class="lab">${shekelHtml(a.v, 0)}</span></button>`;
+      }).join('')}</div>
+      <div class="pk-hd"><h2>מה זה שווה</h2><button class="edit" data-act="editor" data-ed="goal">עריכה</button></div>
+      ${goalCard}
       ${WORTH.map((w) => {
         const p = Math.min(1, saved / w.price);
-        const times = saved / w.price;
-        const note = times >= 1 ? `<div class="sub">${nf(times, times >= 10 ? 0 : 1)} פעמים</div>` : '';
-        return `<div class="worth">${spot(w.art, 44)}<div class="col"><div class="top"><span class="one">${w.name}</span><bdi dir="ltr" class="amt">${moneyFig(w.price, 0)}</bdi></div><i class="slimbar"><b style="width:${Math.max(p * 100, p > 0 ? 4 : 0).toFixed(1)}%"></b></i>${note}</div></div>`;
+        const reached = saved >= w.price;
+        const sub = reached
+          ? `${shekelHtml(w.price, 0)} · ${timesPhrase(saved / w.price)}`
+          : `${shekelHtml(w.price, 0)} · עוד ${shekelHtml(Math.max(0, w.price - saved), 0)}`;
+        const stat = reached
+          ? `<span class="ok" aria-label="הושג"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>`
+          : `<bdi dir="ltr">${Math.round(p * 100)}%</bdi>`;
+        return `<div class="wrow"><div class="wring">${arcRing(64, p, reached)}${pocketSpot(w.art, 50)}</div><div class="wmeta"><div class="t">${w.name}</div><div class="s${reached ? ' got' : ''}">${sub}</div></div><div class="wstat">${stat}</div></div>`;
       }).join('')}
-    </div>
-    <div class="pk-sec">
-      <div class="h2">אילו השקעת</div>
-      <p class="small">כל חודש, הסכום שנחסך מושקע במדד רחב. המספר למטה גדל עם מה שנחסך עכשיו.</p>
-      <label class="invest"><span>תשואה שנתית משוערת <b id="investV">${Math.round(rate * 100)}%</b></span><input id="invest" type="range" min="3" max="10" step="1" value="${Math.round(rate * 100)}"></label>
-      <div class="proj"><div class="k">בעוד 10 שנים</div><div class="fig" dir="ltr"><bdi dir="ltr" class="main" data-roll="proj">${nf(fvs[2], 0)}</bdi><span class="shekel">₪</span></div></div>
-      <div class="invbars">${fvs.map((v, i) => `<div><i class="${years[i] === 10 ? 'hot' : ''}" style="height:${Math.max(8, Math.round((v / max) * 96))}px"></i><b>${years[i] === 1 ? 'שנה' : `${years[i]} שנים`}</b><span><bdi dir="ltr">${moneyFig(v, 0)}</bdi></span></div>`).join('')}</div>
-      <p class="disc">להמחשה בלבד, אינו ייעוץ השקעות. תשואות עבר אינן מבטיחות תשואות עתידיות.</p>
-    </div>
-    <div class="pk-sec">
-      <div class="h2">הישגי כיס</div>
-      ${badgeRow(['money', 'cigs'])}
+      <div class="pk-hd"><h2>אם זה היה מושקע</h2></div>
+      <div class="grow-wrap"><div class="grow" dir="ltr"><bdi dir="ltr" class="main" data-roll="proj">${nf(big, 0)}</bdi><span class="shekel">₪</span></div></div>
+      <p class="grow-cap">בעוד ${horizon} שנים, אם כל חודש נכנס למדד רחב</p>
+      <div class="plants">${plants.map(([y, art, h]) => {
+        const v = futureValue(saved, monthly, GROWTH_RATE, y);
+        return `<button class="plant${y === horizon ? ' on' : ''}" data-act="horizon" data-y="${y}"><img alt="" src="art/pocket/spots/${art}.webp" style="height:${h}px"><span class="y">${y} שנים</span><span class="v"><bdi dir="ltr"><span data-live="fv${y}">${nf(v, 0)}</span><span class="shekel">₪</span></bdi></span></button>`;
+      }).join('')}</div>
+      <p class="note">בהנחת תשואה של כ-7% בשנה, הממוצע ההיסטורי של מדדים רחבים. להמחשה בלבד, לא ייעוץ השקעות.</p>
     </div>
   </div>`;
 }
@@ -905,7 +968,7 @@ export function livePatch() {
     days: String(days),
     clock: q ? fmtClock(elapsed % DAY) : '00:00:00',
     cigs: cigsN == null ? '—' : nf(cigsN, 0),
-    proj: nf(futureValue(savedNow(t), monthlyRate(), investRate(), 10), 0),
+    proj: nf(futureValue(savedNow(t), monthlyRate(), GROWTH_RATE, [5, 10, 20].includes(ui.horizon) ? ui.horizon : 10), 0),
     life: life.n,
     daysa: days === 1 ? 'יום' : 'ימים',
     ciga: cigsN === 1 ? 'סיגריה' : 'סיגריות',
@@ -916,11 +979,44 @@ export function livePatch() {
     const next = rolls[el.dataset.roll];
     if (next != null) rollInto(el, next);
   }
+  const dayRate = (st.settings.cpd || 0) * ppcOf(st.settings);
+  rolls.hour = hourText(dayRate);
+  rolls.pouches = nf(unitsOf(cigsN || 0).n, 1);
+  const rateVals = [dayRate, dayRate * 7, dayRate * MONTH / DAY, dayRate * YEAR / DAY];
+  rateVals.forEach((n, i) => { rolls[`rate${i}`] = rateText(n); });
+  [5, 10, 20].forEach((y) => {
+    rolls[`fv${y}`] = nf(futureValue(savedNow(t), monthlyRate(), GROWTH_RATE, y), 0);
+  });
   for (const el of document.querySelectorAll('[data-live]')) {
     const next = rolls[el.dataset.live];
     if (next == null || el.children.length) continue;
     if (el.textContent !== next) el.textContent = next;
   }
+  maybeCoin(money);
+}
+
+let coinWhole = null;
+let coinAt = 0;
+function maybeCoin(money) {
+  if (ui.route !== 'pocket' || money == null) {
+    coinWhole = money == null ? null : Math.floor(money);
+    return;
+  }
+  const whole = Math.floor(money);
+  const reduce = document.documentElement.classList.contains('reduce');
+  if (coinWhole != null && whole > coinWhole && !reduce && Date.now() - coinAt > 4000) {
+    coinAt = Date.now();
+    const stage = document.querySelector('.pk-stage');
+    if (stage) {
+      const img = document.createElement('img');
+      img.src = `art/pocket/hero/50-coin-${1 + Math.floor(Math.random() * 4)}.webp`;
+      img.className = 'coin';
+      img.alt = '';
+      stage.appendChild(img);
+      setTimeout(() => img.remove(), 950);
+    }
+  }
+  coinWhole = whole;
 }
 
 export { MESSAGES };

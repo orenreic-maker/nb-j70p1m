@@ -1,0 +1,119 @@
+{
+ "canvas": [
+  1170,
+  1080
+ ],
+ "pt": [
+  390,
+  360
+ ],
+ "layers": [
+  {
+   "file": "hero/00-sky.webp",
+   "dark": "hero/00-sky-dusk.webp",
+   "z": 0,
+   "depth": 0.0,
+   "x": 0,
+   "y": 0,
+   "w": 1170,
+   "h": 1080,
+   "anim": "static"
+  },
+  {
+   "file": "hero/10-sun-glow.webp",
+   "z": 10,
+   "depth": 0.05,
+   "x": 245,
+   "y": 20,
+   "w": 680,
+   "h": 680,
+   "opacity": 0.55,
+   "anim": "opacity .85->1, 6s ease-in-out alternate"
+  },
+  {
+   "file": "hero/11-sun-disc.webp",
+   "z": 11,
+   "depth": 0.08,
+   "x": 415,
+   "y": 190,
+   "w": 340,
+   "h": 340,
+   "anim": "rise 6px on screen enter (600ms)"
+  },
+  {
+   "file": "hero/20-cloud-2.webp",
+   "z": 20,
+   "depth": 0.15,
+   "x": 70,
+   "y": 150,
+   "w": 220,
+   "h": 161,
+   "anim": "drift +-24px, 60s linear loop"
+  },
+  {
+   "file": "hero/20-cloud-3.webp",
+   "z": 21,
+   "depth": 0.18,
+   "x": 960,
+   "y": 330,
+   "w": 160,
+   "h": 129,
+   "anim": "drift +-18px, 75s linear loop"
+  },
+  {
+   "file": "hero/25-bird-1.webp",
+   "z": 25,
+   "depth": 0.22,
+   "x": 300,
+   "y": 110,
+   "w": 54,
+   "h": 60,
+   "anim": "glide across 14s, gentle sine 8px; flap scaleY .8 every 1.2s"
+  },
+  {
+   "file": "hero/25-bird-2.webp",
+   "z": 26,
+   "depth": 0.22,
+   "x": 232,
+   "y": 165,
+   "w": 40,
+   "h": 37,
+   "anim": "follow bird-1 with 0.6s delay"
+  },
+  {
+   "file": "hero/30-hills.webp",
+   "z": 30,
+   "depth": 0.35,
+   "x": 0,
+   "y": 0,
+   "w": 1170,
+   "h": 1080,
+   "anim": "static (parallax only)"
+  },
+  {
+   "file": "hero/40-jar.webp",
+   "z": 40,
+   "depth": 0.6,
+   "x": 445,
+   "y": 135,
+   "w": 279,
+   "h": 600,
+   "anim": "sapling sway +-1.5deg around jar mouth (transform-origin 50% 52%), 7s"
+  },
+  {
+   "file": "hero/50-coin-1.webp",
+   "z": 50,
+   "depth": 0.8,
+   "x": 684,
+   "y": 385,
+   "w": 54,
+   "h": 54,
+   "opacity": 0,
+   "anim": "on money tick: coin drops from y-60 into jar mouth, fade in/out 900ms (max 1 per 4s)"
+  }
+ ],
+ "page_bg": {
+  "light": "#F6EFE3",
+  "dark": "#151B17"
+ }
+}

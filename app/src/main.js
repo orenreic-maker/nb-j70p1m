@@ -353,7 +353,8 @@ function applyShot(shot) {
   if (shot === 'home') ui.route = 'home';
   if (shot === 'sos') { ui.route = 'sos'; }
   if (shot === 'health') ui.route = 'health';
-  if (shot === 'badges' || shot === 'pocket') ui.route = 'pocket';
+  if (shot === 'badges') ui.route = 'badges';
+  if (shot === 'pocket') ui.route = 'pocket';
   if (shot === 'unlock') { ui.route = 'pocket'; ui.cheer = { kind: 'ach', item: ACH.find((a) => a.id === 'd3') }; }
   if (shot === 'stats') ui.route = 'stats';
   if (shot === 'journal') ui.route = 'journal';
@@ -370,14 +371,23 @@ function applyShot(shot) {
 
 const actions = {
   go(el) {
-    const goTo = el.dataset.go === 'badges' ? 'pocket' : el.dataset.go;
-    ui.route = goTo;
+    ui.route = el.dataset.go;
     ui.overlay = null;
     ui.unlock = null;
     ui.cheer = null;
     render();
     if (ui.route === 'share') paintCard();
     syncBanner(st, ui.route, now());
+  },
+  horizon(el) {
+    const y = +el.dataset.y;
+    if (![5, 10, 20].includes(y) || y === ui.horizon) return;
+    ui.horizon = y;
+    const sc = document.querySelector('.screen.money-screen');
+    const top = sc ? sc.scrollTop : 0;
+    render();
+    const next = document.querySelector('.screen.money-screen');
+    if (next) next.scrollTop = top;
   },
   back() { ui.route = 'home'; ui.overlay = null; render(); },
   sos() { startSos(); },
@@ -581,7 +591,6 @@ document.body.addEventListener('click', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
-  if (e.target.id === 'invest') persist();
   if (e.target.id === 'qdt') ui.dateValue = e.target.value;
   if (e.target.id === 'obphoto' || e.target.id === 'edit-photo') {
     const file = e.target.files?.[0];
@@ -602,17 +611,6 @@ document.body.addEventListener('input', (e) => {
     if (v) v.textContent = `${e.target.value} מתוך 10`;
     const th = e.target.parentElement?.querySelector('.th');
     if (th) th.style.insetInlineEnd = `${e.target.value * 10}%`;
-  }
-  if (e.target.id === 'invest') {
-    const v = Math.min(10, Math.max(3, Math.round(+e.target.value) || 7));
-    st.settings.investRate = v / 100;
-    const lab = document.getElementById('investV');
-    if (lab) lab.textContent = `${v}%`;
-    const sc = document.querySelector('.screen.money-screen');
-    const top = sc ? sc.scrollTop : 0;
-    render();
-    const next = document.querySelector('.screen.money-screen');
-    if (next) next.scrollTop = top;
   }
   if (e.target.id === 'logint') {
     const entry = st.cravings.find((c) => c.id === ui.insightId);
@@ -653,6 +651,10 @@ async function boot() {
   }
   if (shot && q.get('nobars') === '1') st.cravings = [];
   if (shot && q.get('live') === '1') st.freezeNow = null;
+  if (shot && q.get('goal')) {
+    st.settings.goalPrice = Math.max(0, parseFloat(q.get('goal')) || 0);
+    if (q.get('goalName')) st.settings.goalName = q.get('goalName');
+  }
   if (shot && q.get('sat')) document.documentElement.style.setProperty('--sat', `${parseInt(q.get('sat'), 10) || 0}px`);
   else if (!st.onboarded) { ui.route = 'onboard'; ui.obStep = 0; }
   render();
@@ -661,7 +663,7 @@ async function boot() {
   registerPreviewWorker();
   onNotificationOpen((extra) => {
     if (extra.route === 'checkin') { ui.route = 'journal'; ui.overlay = 'checkin'; }
-    else if (extra.route === 'badges') ui.route = 'health';
+    else if (extra.route === 'badges') ui.route = 'badges';
     else if (extra.route) ui.route = extra.route;
     render();
   });
