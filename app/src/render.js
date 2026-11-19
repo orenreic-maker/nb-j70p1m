@@ -1,6 +1,6 @@
 import { icon } from './icons.js';
 import { BREATH } from './breath.js';
-import { scene, wordmark, WORDMARK } from './scene.js';
+import { mark, scene, wordmark, WORDMARK } from './scene.js';
 import { livingScene, stageFor } from './living.js';
 import { hasSpot, spot, tabIcon } from './art.js';
 import { now, save, st } from './store.js';
@@ -91,6 +91,8 @@ export function render() {
     noteStage();
   }
   if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
+  if (ui.route === 'onboard' && ui.obStep === 0) startWelcomeTease();
+  else stopWelcomeTease();
 }
 
 /** Vertical digit strip. The shekel mark is never inside this node. */
@@ -795,12 +797,13 @@ function slipDone() {
 
 function onboard() {
   const step = ui.obStep;
+  if (step === 0) return obWelcome();
   const dots = [0, 1, 2, 3].map((i) => `<i class="${i < step - 1 ? 'done' : i === step - 1 ? 'on' : ''}"></i>`).join('');
-  const top = step === 0 ? '' : `<div class="topbar"><button class="iconbtn" data-act="ob-back" style="visibility:${step ? 'visible' : 'hidden'}" aria-label="חזרה">${icon('chevron', 18, 'currentColor', 'transform:scaleX(-1)')}</button><div class="steps">${dots}</div><button class="small" data-act="ob-skip">דילוג</button></div>`;
+  const top = `<div class="topbar"><button class="iconbtn" data-act="ob-back" aria-label="חזרה">${icon('chevron', 18, 'currentColor', 'transform:scaleX(-1)')}</button><div class="steps">${dots}</div><button class="small" data-act="ob-skip">דילוג</button></div>`;
   const body = [obWelcome, obDate, obHabit, obCost, obWhy][step]();
-  const label = step === 0 ? 'מתחילים' : step === 4 ? 'יוצאים לדרך' : 'המשך';
+  const label = step === 4 ? 'יוצאים לדרך' : 'המשך';
   const dis = obBlocked(step) ? ' dis' : '';
-  return `<div class="screen ob">${top}<div class="grow">${body}</div><div class="foot"><button class="btn primary${dis}" data-act="ob-next">${label}</button>${step === 0 ? '<div class="note small">יש גיבוי מהעבר? <button data-act="import" style="text-decoration:underline">ייבוא נתונים</button></div>' : ''}</div></div>`;
+  return `<div class="screen ob">${top}<div class="grow">${body}</div><div class="foot"><button class="btn primary${dis}" data-act="ob-next">${label}</button></div></div>`;
 }
 
 function obBlocked(step) {
@@ -811,8 +814,64 @@ function obBlocked(step) {
 }
 
 function obWelcome() {
-  return `<div style="position:relative"><div class="welcome-scene"><img class="ob-hero" src="art/spots/onboarding-hero.webp" alt=""></div><div style="position:absolute;top:calc(8px + env(safe-area-inset-top));left:var(--gutter);right:var(--gutter);display:flex;justify-content:flex-start">${wordmark(18, false)}</div></div>
-    <div class="welcome-sheet"><div class="h-display">כל נשימה<br>היא התחלה</div><p class="lead" style="margin-top:12px">מונה גמילה פרטי: זמן, כסף ובריאות. בלי חשבון ובלי שרת. הכול נשאר במכשיר. רישום חשק מראה שהוא נחלש ומתקצר.</p></div>`;
+  const dark = theme() === 'dark';
+  const art = (name) => `<img class="wl-art ${name === 'day' ? 'day' : 'dusk'}" alt="" width="390" height="904" src="art/welcome-${name}@2x.webp" srcset="art/welcome-${name}@2x.webp 2x, art/welcome-${name}@3x.webp 3x">`;
+  return `<div class="screen wl">
+    ${art('day')}${art('dusk')}
+    <div class="wl-mist" aria-hidden="true"></div>
+    <div class="wl-brand">${mark(23, dark)}<span class="wm">${WORDMARK}</span></div>
+    <div class="wl-hook">
+      <h1>נושמים<br>מחדש</h1>
+      <p class="wl-sub">כל נשימה בלי עישון: כסף בכיס,<br>וגוף שמתחדש.</p>
+    </div>
+    <div class="wl-bottom">
+      <div class="wl-points">
+        <div class="cell">${spot('jar', 54)}<div class="t">הכיס</div><div class="d"><div class="line"><bdi dir="ltr" class="amt"><span data-tease>0</span><span class="shekel">₪</span></bdi> בשנה</div><div>על קופסה ביום</div></div></div>
+        <div class="cell">${spot('lungs', 54)}<div class="t">הגוף</div><div class="d">ציר החלמה,<br>שלב אחרי שלב</div></div>
+        <div class="cell">${spot('breath', 54)}<div class="t">רגע קשה</div><div class="d">נשימה מודרכת<br>עד שהגל עובר</div></div>
+      </div>
+      <button class="wl-cta" data-act="ob-next">בואו נתחיל</button>
+      <p class="wl-import">יש לי גיבוי – <button data-act="import">ייבוא נתונים</button></p>
+      <p class="wl-priv">${icon('lock', 13, 'currentColor', 1.7)}בלי חשבון, הכול נשאר אצלך</p>
+    </div>
+  </div>`;
+}
+
+const TEASE_TARGET = 13140;
+let teaseFrame = 0;
+let teaseTick = 0;
+function stopWelcomeTease() {
+  cancelAnimationFrame(teaseFrame);
+  clearInterval(teaseTick);
+  teaseFrame = 0;
+  teaseTick = 0;
+}
+function startWelcomeTease() {
+  stopWelcomeTease();
+  const el = document.querySelector('[data-tease]');
+  if (!el) return;
+  const reduce = document.documentElement.classList.contains('reduce');
+  const paint = (n) => {
+    const node = document.querySelector('[data-tease]');
+    if (node) node.textContent = nf(n, 0);
+  };
+  if (reduce) { paint(TEASE_TARGET); return; }
+  const t0 = performance.now();
+  const ease = (t) => 1 - (1 - t) ** 3;
+  const run = (t) => {
+    const p = Math.min(1, (t - t0) / 1400);
+    paint(Math.round(ease(p) * TEASE_TARGET));
+    if (p < 1) teaseFrame = requestAnimationFrame(run);
+    else {
+      let n = TEASE_TARGET;
+      teaseTick = setInterval(() => {
+        n += 1;
+        if (!document.querySelector('[data-tease]')) { stopWelcomeTease(); return; }
+        paint(n);
+      }, 4000);
+    }
+  };
+  teaseFrame = requestAnimationFrame(run);
 }
 function obDate() {
   const past = ui.dateMode === 'past';
