@@ -106,3 +106,36 @@ export async function onNotificationOpen(handler) {
     });
   } catch { /* ignore */ }
 }
+
+function decodeBase64Utf8(b64) {
+  const bin = atob(String(b64 || '').replace(/\s+/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+// Native backup picker: opens the system Files/documents picker directly,
+// with only JSON files selectable. Resolves to the file text, or null when
+// the user cancels. Throws { code: 'unavailable' } if the plugin is missing.
+export async function pickJsonNative() {
+  let FilePicker;
+  try {
+    ({ FilePicker } = await import('@capawesome/capacitor-file-picker'));
+  } catch {
+    const e = new Error('unavailable'); e.code = 'unavailable'; throw e;
+  }
+  let res;
+  try {
+    res = await FilePicker.pickFiles({ types: ['application/json'], limit: 1, readData: true });
+  } catch (e) {
+    const msg = String(e?.message || e || '');
+    if (/cancel/i.test(msg)) return null;
+    if (/not implemented|unimplemented/i.test(msg) || e?.code === 'UNIMPLEMENTED') { const u = new Error('unavailable'); u.code = 'unavailable'; throw u; }
+    throw e;
+  }
+  const f = res?.files?.[0];
+  if (!f) return null;
+  if (f.data) return decodeBase64Utf8(f.data);
+  if (f.blob) return f.blob.text();
+  throw new Error('no data');
+}
