@@ -12,6 +12,9 @@ import { canPersist, load, now, save, st, useMemory } from './store.js';
 import { demoState } from './demo.js';
 import { bump, ui } from './ui-state.js';
 import { weekStats } from './insights.js';
+import { applyProduct, pouchVariant } from './prices.js';
+import { checkText } from './filter.js';
+import { captureOnboard, habitDraft, obProblems, openCpdInput, pickBrand, refreshBrandList } from './onboard-view.js';
 
 const PHASES = {
   '478': [['שאיפה', 4, 1], ['החזקה', 7, 1], ['נשיפה', 8, 0.82]],
@@ -171,11 +174,15 @@ function patchSos() {
   }
 }
 
-function readCost() {
-  const o = { ...(ui.cost || {}) };
-  document.querySelectorAll('[data-cost]').forEach((el) => { o[el.dataset.cost] = el.value; });
-  ui.cost = o;
-  return o;
+function seedProduct() {
+  const s = st.settings;
+  ui.habitMode = s.mode === 'pack' ? 'pack' : 'ryo';
+  ui.brandId = s.brandId || (s.brandLabel ? 'other' : '');
+  ui.customBrand = s.brandId ? '' : (s.brandLabel || '');
+  ui.price = String(s.mode === 'pack' ? (s.packPrice ?? '') : (s.tobPrice ?? ''));
+  ui.pouchGrams = s.tobGrams || null;
+  ui.priceTouched = s.costSource === 'custom';
+  ui.brandQuery = '';
 }
 
 function num(v, fallback) {
@@ -184,19 +191,22 @@ function num(v, fallback) {
 }
 
 async function finishOnboarding() {
+  captureOnboard();
   const s = st.settings;
   if (ui.dateMode === 'past' && ui.dateValue) s.quitAt = Math.min(Date.now(), new Date(ui.dateValue).getTime());
   else s.quitAt = Date.now();
-  if (ui.habitMode) s.mode = ui.habitMode;
-  if (ui.cpd) s.cpd = ui.cpd;
-  s.years = parseInt(document.getElementById('years')?.value || ui.years || '0', 10) || 0;
-  const cost = readCost();
-  for (const [k, v] of Object.entries(cost)) s[k] = num(v, s[k]);
-  s.name = (document.getElementById('obname')?.value || ui.name || '').trim();
-  const why = (document.getElementById('obwhy')?.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  if (!ui.habitMode) ui.habitMode = 'pack';
+  applyProduct(s, habitDraft());
+  if (ui.cpd) s.cpd = Math.max(1, Math.min(80, Math.round(+ui.cpd)));
+  const years = parseInt(ui.years || '0', 10);
+  s.years = Number.isFinite(years) ? Math.max(0, Math.min(70, years)) : 0;
+  s.name = (ui.name || '').trim();
+  s.gender = ui.gender || 'x';
+  s.ageOk = !!ui.ageOk;
+  const why = (ui.why || '').split('\n').map((x) => x.trim()).filter(Boolean);
   if (why.length) s.reasons = why.slice(0, 12);
-  s.goalName = (document.getElementById('obgoal')?.value || '').trim();
-  s.goalPrice = num(document.getElementById('obgoalp')?.value, 0);
+  s.goalName = (ui.goal || '').trim();
+  s.goalPrice = num(ui.goalPrice, 0);
   st.onboarded = true;
   const fresh = syncUnlocks(st, now());
   collectUnlocks(fresh);
@@ -291,8 +301,13 @@ async function compress(file) {
 }
 
 async function exportBackup() {
+  st.settings.lastBackup = Date.now();
   const name = `breathanew-backup-${new Date().toISOString().slice(0, 10)}.json`;
   const json = JSON.stringify({ ...st, freezeNow: undefined }, null, 2);
+  const label = `גובה ב-${new Date(st.settings.lastBackup).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}`;
+  const node = document.querySelector('[data-set="export"] .v');
+  if (node) node.textContent = label;
+  if (canPersist()) save();
   if (isNative()) {
     try {
       const uri = await writeCacheFile(name, json);
@@ -396,10 +411,14 @@ function applyShot(shot) {
     ui.pending = [];
   }
   if (shot === 'welcome') { ui.route = 'onboard'; ui.obStep = 0; }
-  if (shot === 'date') { ui.route = 'onboard'; ui.obStep = 1; ui.dateMode = 'past'; ui.dateValue = '2026-11-14T06:00'; }
-  if (shot === 'habit') { ui.route = 'onboard'; ui.obStep = 2; }
-  if (shot === 'cost') { ui.route = 'onboard'; ui.obStep = 3; ui.habitMode = 'ryo'; }
-  if (shot === 'why') { ui.route = 'onboard'; ui.obStep = 4; ui.habitMode = 'ryo'; ui.cpd = 10; ui.dateMode = 'now'; }
+  if (shot === 'about') { ui.route = 'onboard'; ui.obStep = 1; }
+  if (shot === 'date') { ui.route = 'onboard'; ui.obStep = 2; ui.dateMode = 'past'; ui.dateValue = '2026-11-14T06:00'; }
+  if (shot === 'what' || shot === 'cost') { ui.route = 'onboard'; ui.obStep = 3; ui.habitMode = shot === 'cost' ? 'ryo' : 'pack'; }
+  if (shot === 'how' || shot === 'habit') {
+    ui.route = 'onboard'; ui.obStep = 4; ui.habitMode = 'pack'; ui.brandId = 'marlboro-gold'; ui.price = '46.5'; ui.cpd = 11;
+  }
+  if (shot === 'why') { ui.route = 'onboard'; ui.obStep = 5; ui.habitMode = 'pack'; ui.cpd = 11; ui.gender = 'f'; ui.ageOk = true; ui.dateMode = 'now'; }
+  if (shot === 'wipe') { ui.route = 'settings'; ui.overlay = 'wipe'; }
   if (shot === 'home') ui.route = 'home';
   if (shot === 'sos') { ui.route = 'sos'; }
   if (shot === 'health') ui.route = 'health';
@@ -529,6 +548,7 @@ const actions = {
     const k = el.dataset.key;
     st.settings[k] = !st.settings[k];
     el.querySelector('.tg')?.classList.toggle('on', !!st.settings[k]);
+    document.querySelector(`[data-reveal="${k}"]`)?.classList.toggle('hide', !st.settings[k]);
     if (k === 'celebrate') {
       document.documentElement.classList.toggle('reduce', !st.settings.celebrate || matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
@@ -539,21 +559,15 @@ const actions = {
     const k = el.dataset.set;
     if (k === 'export') return exportBackup();
     if (k === 'import') return pickBackup();
-    if (k === 'reset') {
-      if (!confirm('למחוק את כל הנתונים מהמכשיר?')) return;
-      if (!confirm('בלי גיבוי אי אפשר לשחזר. למחוק?')) return;
-      const fresh = blank();
-      Object.assign(st, fresh);
-      st.settings = fresh.settings;
-      ui.route = 'onboard'; ui.obStep = 0;
-      await persist();
-      return;
-    }
+    if (k === 'reset' || k === 'wipe') { ui.overlay = 'wipe'; ui.editor = null; render(); return; }
     if (k === 'privacy') { location.href = './privacy.html'; return; }
     if (k === 'about') { ui.overlay = 'about'; render(); return; }
     if (k === 'hmo') { ui.overlay = 'hmo'; render(); return; }
     if (k === 'restore') return restore();
-    ui.editor = k === 'date' || k === 'cpd' || k === 'goal' || k === 'why' || k === 'cost' ? k : null;
+    const editors = ['date', 'cpd', 'goal', 'why', 'cost', 'name', 'gender', 'checkin'];
+    if (k === 'cost') seedProduct();
+    ui.editor = editors.includes(k) ? k : null;
+    if (ui.editor) ui.overlay = null;
     render();
   },
   editor: (el) => { ui.editor = el.dataset.ed; render(); },
@@ -569,15 +583,30 @@ const actions = {
       s.mpc = num(document.getElementById('edit-mpc')?.value, s.mpc);
     }
     if (ui.editor === 'goal') {
-      s.goalName = document.getElementById('edit-goal')?.value.trim() || '';
+      const goal = document.getElementById('edit-goal')?.value.trim() || '';
+      if (checkText(goal, 'goal')) { toast('לזה לא נחסוך. אולי משהו שיעשה טוב?'); return; }
+      s.goalName = goal;
       s.goalPrice = num(document.getElementById('edit-goalp')?.value, 0);
     }
     if (ui.editor === 'why') {
-      s.reasons = (document.getElementById('edit-why')?.value || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 12);
+      const lines = (document.getElementById('edit-why')?.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+      if (lines.some((line) => checkText(line, 'reason'))) { toast('אולי ננסח את זה אחרת?'); return; }
+      s.reasons = lines.slice(0, 12);
+    }
+    if (ui.editor === 'name') {
+      const name = document.getElementById('edit-name')?.value.trim() || '';
+      if (checkText(name, 'name')) { toast('השם הזה לא יעבור אצלנו'); return; }
+      s.name = name;
+    }
+    if (ui.editor === 'gender') s.gender = ui.gender || s.gender;
+    if (ui.editor === 'checkin') {
+      const hour = parseInt(document.getElementById('edit-hour')?.value || '', 10);
+      if (Number.isFinite(hour)) s.checkinHour = Math.min(23, Math.max(0, hour));
     }
     if (ui.editor === 'cost') {
-      const cost = readCost();
-      for (const [k, v] of Object.entries(cost)) s[k] = num(v, s[k]);
+      captureOnboard();
+      if (!ui.habitMode) ui.habitMode = s.mode || 'pack';
+      applyProduct(s, habitDraft());
     }
     ui.editor = null;
     syncUnlocks(st, now());
@@ -602,24 +631,69 @@ const actions = {
     const w = weekStats(st, now());
     shareCanvas({ caption: `${w.beaten} גלים השבוע · ${ils(w.saved, 0)}` });
   },
-  'ob-back'() { ui.obStep = Math.max(0, ui.obStep - 1); render(); },
-  'ob-skip'() {
-    if (ui.obStep === 3) readCost();
-    if (ui.obStep < 4 && obMissing()) { toast('חסר תאריך, סוג, או מספר סיגריות'); return; }
-    if (ui.obStep < 4) { ui.obStep += 1; render(); return; }
-    finishOnboarding();
-  },
+  'ob-back'() { captureOnboard(); ui.obStep = Math.max(0, ui.obStep - 1); render(); },
+  'ob-skip'() { captureOnboard(); if (ui.obStep === 5) finishOnboarding(); },
   'ob-next'(el) {
-    if (el.classList.contains('dis')) return;
-    if (ui.obStep === 1 && ui.dateMode === 'past') ui.dateValue = document.getElementById('qdt')?.value || ui.dateValue;
-    if (ui.obStep === 2) ui.years = document.getElementById('years')?.value || '';
-    if (ui.obStep === 3) readCost();
-    if (ui.obStep === 4) { finishOnboarding(); return; }
+    captureOnboard();
+    if (el.classList.contains('dis') || obProblems()) return;
+    if (ui.obStep >= 5) { finishOnboarding(); return; }
     ui.obStep += 1;
     render();
   },
-  'date-mode'(el) { ui.dateMode = el.dataset.mode; render(); },
-  habit(el) { ui.habitMode = el.dataset.mode; render(); },
+  'date-mode'(el) { captureOnboard(); ui.dateMode = el.dataset.mode; render(); },
+  habit(el) {
+    captureOnboard();
+    const next = el.dataset.mode;
+    if (ui.habitMode !== next) {
+      ui.habitMode = next;
+      ui.brandId = '';
+      ui.price = '';
+      ui.priceTouched = false;
+      ui.pouchGrams = null;
+      ui.customBrand = '';
+    }
+    render();
+  },
+  gender(el) {
+    captureOnboard();
+    ui.gender = el.dataset.g;
+    if (ui.editor === 'gender') st.settings.gender = ui.gender;
+    render();
+  },
+  age() { captureOnboard(); ui.ageOk = !ui.ageOk; render(); },
+  brand(el) { captureOnboard(); pickBrand(el.dataset.id); render(); },
+  'brand-clear'() { captureOnboard(); ui.brandId = ''; ui.price = ''; ui.priceTouched = false; ui.customBrand = ''; render(); },
+  pouch(el) {
+    captureOnboard();
+    ui.pouchGrams = +el.dataset.g;
+    if (!ui.priceTouched && ui.brandId && ui.brandId !== 'other') {
+      const alt = pouchVariant(ui.brandId, ui.pouchGrams);
+      if (alt) {
+        ui.brandId = alt.id;
+        ui.price = String(alt.price_ils);
+      }
+    }
+    render();
+  },
+  'price-focus'() { document.getElementById('ob-price')?.focus(); document.getElementById('ob-price')?.select(); },
+  'cpd-type'() { openCpdInput(); },
+  'open-date'() {
+    const input = document.getElementById('qdt');
+    if (!input) return;
+    try { input.showPicker(); } catch { input.focus(); }
+  },
+  'ob-photo'() { document.getElementById('obphoto')?.click(); },
+  'scroll-data'() { document.getElementById('your-data')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  async 'wipe-go'() {
+    const fresh = blank();
+    Object.assign(st, fresh);
+    st.settings = fresh.settings;
+    ui.route = 'onboard';
+    ui.obStep = 0;
+    ui.overlay = null;
+    ui.editor = null;
+    await persist();
+  },
   cpd(el) {
     const d = +el.dataset.d;
     ui.cpd = Math.max(1, Math.min(80, (ui.cpd || 0) + d));
@@ -630,13 +704,6 @@ const actions = {
   },
   import() { pickBackup(); },
 };
-
-function obMissing() {
-  if (!ui.dateMode) return true;
-  if (ui.dateMode === 'past' && !(document.getElementById('qdt')?.value || ui.dateValue)) return true;
-  if (!ui.habitMode || !ui.cpd) return true;
-  return false;
-}
 
 async function restore() {
   const res = await restoreRemoveAds();
@@ -654,7 +721,7 @@ document.body.addEventListener('click', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
-  if (e.target.id === 'qdt') ui.dateValue = e.target.value;
+  if (e.target.id === 'qdt') { ui.dateValue = e.target.value; render(); return; }
   if (e.target.id === 'obphoto' || e.target.id === 'edit-photo') {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -664,7 +731,49 @@ document.body.addEventListener('change', async (e) => {
   }
 });
 
+function paintFilter(input, msg) {
+  const box = input.closest('.input');
+  box?.classList.toggle('bad', !!msg);
+  let err = box?.nextElementSibling;
+  if (!err || !err.classList.contains('ob-err')) {
+    if (!msg) {
+      document.querySelector('[data-act="ob-next"]')?.classList.toggle('dis', !!obProblems());
+      return;
+    }
+    err = document.createElement('p');
+    err.className = 'ob-err';
+    err.setAttribute('role', 'alert');
+    box?.insertAdjacentElement('afterend', err);
+  }
+  err.hidden = !msg;
+  err.textContent = msg || '';
+  document.querySelector('[data-act="ob-next"]')?.classList.toggle('dis', !!obProblems());
+  document.querySelector('[data-act="editor-save"]')?.classList.toggle('dis', !!msg);
+}
+
 document.body.addEventListener('input', (e) => {
+  if (e.target.id === 'obname' || e.target.id === 'edit-name') {
+    ui.name = e.target.value;
+    paintFilter(e.target, checkText(e.target.value, 'name'));
+  }
+  if (e.target.id === 'obwhy' || e.target.id === 'edit-why') {
+    ui.why = e.target.value;
+    paintFilter(e.target, checkText(e.target.value, 'reason'));
+  }
+  if (e.target.id === 'obgoal' || e.target.id === 'edit-goal') {
+    ui.goal = e.target.value;
+    paintFilter(e.target, checkText(e.target.value, 'goal'));
+  }
+  if (e.target.id === 'brand-q') { ui.brandQuery = e.target.value; refreshBrandList(); }
+  if (e.target.id === 'ob-price') { ui.price = e.target.value; ui.priceTouched = true; }
+  if (e.target.id === 'ob-custom-name') ui.customBrand = e.target.value;
+  if (e.target.id === 'years') {
+    const n = parseInt(e.target.value, 10);
+    if (Number.isFinite(n) && n > 70) e.target.value = '70';
+    if (Number.isFinite(n) && n < 0) e.target.value = '0';
+    ui.years = e.target.value;
+  }
+  if (e.target.id === 'obgoalp') ui.goalPrice = e.target.value;
   if (e.target.dataset?.cost) {
     ui.cost = ui.cost || {};
     ui.cost[e.target.dataset.cost] = e.target.value;
@@ -719,7 +828,7 @@ async function boot() {
     if (q.get('goalName')) st.settings.goalName = q.get('goalName');
   }
   if (shot && q.get('sat')) document.documentElement.style.setProperty('--sat', `${parseInt(q.get('sat'), 10) || 0}px`);
-  else if (!st.onboarded) { ui.route = 'onboard'; ui.obStep = 0; }
+  else if (!shot && !st.onboarded) { ui.route = 'onboard'; ui.obStep = 0; }
   render();
   applyStatusBar(theme());
   hideSplash();

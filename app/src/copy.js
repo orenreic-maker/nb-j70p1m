@@ -1,3 +1,12 @@
+import { st } from './store.js';
+
+/** Gendered copy. x is the impersonal form used until an address is chosen. */
+export function g(m, f, x = m) {
+  const k = st.settings?.gender;
+  const key = k === 'm' || k === 'f' || k === 'x' ? k : 'x';
+  return { m, f, x }[key];
+}
+
 export const TRIGGERS = [
   { id: 'coffee', label: 'קפה', tip: 'קפה הוא טריגר נפוץ. כדאי להזיז את הכוס מהמקום הקבוע, או לשתות ולצאת לסיבוב קצר.' },
   { id: 'stress', label: 'לחץ', tip: 'לחץ מעלה חשק. שלוש נשימות איטיות לפני שמחליטים, ואז כוס מים.' },
