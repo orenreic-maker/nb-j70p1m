@@ -14,7 +14,7 @@ import { bump, ui } from './ui-state.js';
 import { weekStats } from './insights.js';
 import { applyProduct, pouchVariant } from './prices.js';
 import { checkText } from './filter.js';
-import { captureOnboard, habitDraft, obProblems, openCpdInput, pickBrand, refreshBrandList } from './onboard-view.js';
+import { applyDateInput, captureOnboard, habitDraft, obProblems, openCpdInput, pickBrand, refreshBrandList } from './onboard-view.js';
 
 const PHASES = {
   '478': [['שאיפה', 4, 1], ['החזקה', 7, 1], ['נשיפה', 8, 0.82]],
@@ -677,11 +677,6 @@ const actions = {
   },
   'price-focus'() { document.getElementById('ob-price')?.focus(); document.getElementById('ob-price')?.select(); },
   'cpd-type'() { openCpdInput(); },
-  'open-date'() {
-    const input = document.getElementById('qdt');
-    if (!input) return;
-    try { input.showPicker(); } catch { input.focus(); }
-  },
   'ob-photo'() { document.getElementById('obphoto')?.click(); },
   'scroll-data'() { document.getElementById('your-data')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   async 'wipe-go'() {
@@ -721,7 +716,14 @@ document.body.addEventListener('click', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
-  if (e.target.id === 'qdt') { ui.dateValue = e.target.value; render(); return; }
+  if (e.target.id === 'qdt' || e.target.id === 'edit-date') {
+    const value = applyDateInput(e.target);
+    if (e.target.id === 'qdt') {
+      ui.dateValue = value;
+      document.querySelector('[data-act="ob-next"]')?.classList.toggle('dis', !!obProblems());
+    }
+    return;
+  }
   if (e.target.id === 'obphoto' || e.target.id === 'edit-photo') {
     const file = e.target.files?.[0];
     if (!file) return;

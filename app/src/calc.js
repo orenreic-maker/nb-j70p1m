@@ -199,6 +199,13 @@ export function fmtLifeShort(minutes) {
   return d === 1 ? 'יום' : `${d} ימים`;
 }
 
+/** Value for input[type=datetime-local], in local time. */
+export function localInputValue(t) {
+  const d = new Date(t);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export function hebDate(t) {
   try {
     return new Date(t).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^יום\s+/, '');
