@@ -4,7 +4,7 @@ import { adsAllowed, syncBanner } from './ads.js';
 import { DAY, HOUR, MIN, ils, ppcOf } from './calc.js';
 import { HEALTH } from './health.js';
 import { applyCheckin, applySlip, applyWin, blank, migrate, parseBackup } from './model.js';
-import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, sharePayload, syncNotifications, writeCacheFile } from './native.js';
+import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, pickJsonNative, sharePayload, syncNotifications, writeCacheFile } from './native.js';
 import { buyRemoveAds, restoreRemoveAds } from './purchases.js';
 import { livePatch, render, theme } from './render.js';
 import { drawCard } from './sharecard.js';
@@ -255,11 +255,26 @@ function readFileText(f) {
   });
 }
 
-// No accept filter: iOS greys out .json files saved from Safari (or renamed .txt)
-// when accept is set, and importText validates the content anyway.
-function pickBackup() {
-  filePick('', async (f) => {
-    try { await importText(await readFileText(f)); } catch { toast('הקובץ לא נראה כמו גיבוי'); }
+// Native: the system document picker straight away, JSON only (no
+// photo/camera menu). Web: an attached <input type=file> limited to JSON.
+// Cancel is silent; anything that isn't a backup gets the existing toast.
+async function pickBackup() {
+  const run = async (text) => {
+    try { await importText(text); } catch { toast('הקובץ לא נראה כמו גיבוי'); }
+  };
+  if (isNative()) {
+    try {
+      const text = await pickJsonNative();
+      if (text != null) await run(text);
+      return;
+    } catch (e) {
+      if (e?.code !== 'unavailable') { toast('הקובץ לא נראה כמו גיבוי'); return; }
+    }
+  }
+  filePick('application/json,.json', async (f) => {
+    let text;
+    try { text = await readFileText(f); } catch { toast('הקובץ לא נראה כמו גיבוי'); return; }
+    await run(text);
   });
 }
 
