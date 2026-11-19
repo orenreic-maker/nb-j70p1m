@@ -822,7 +822,7 @@ function obWelcome() {
     <div class="wl-brand">${mark(23, dark)}<span class="wm">${WORDMARK}</span></div>
     <div class="wl-hook">
       <h1>נושמים<br>מחדש</h1>
-      <p class="wl-sub">כל נשימה בלי עישון: כסף בכיס,<br>וגוף שמתחדש.</p>
+      <p class="wl-sub">כל נשימה בלי עישון: כסף בכיס, <br>וגוף שמתחדש.</p>
     </div>
     <div class="wl-bottom">
       <div class="wl-points">

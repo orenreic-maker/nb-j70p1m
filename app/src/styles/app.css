@@ -34,7 +34,7 @@ html:not([data-theme="dark"]) .wl-art.dusk,[data-theme="dark"] .wl-art.day{displ
 .wl-points .d{font:400 12px/1.35 var(--f-text);color:var(--c-ink-2)}
 .wl-points .line{white-space:nowrap}
 .wl-points .amt{font:700 25px/1 var(--f-display);color:var(--c-clay);letter-spacing:0;white-space:nowrap}
-.wl-points .amt .shekel{font:500 .72em/1 var(--f-text);color:var(--c-clay)}
+.wl-points .amt .shekel{font:500 .72em/1 var(--f-text);color:var(--c-clay);margin-inline-start:4px}
 .wl-cta{margin-top:20px;width:100%;height:56px;border-radius:999px;background:#2F3A2B;color:#F6EFE3;font:600 17px/1 var(--f-text);display:flex;align-items:center;justify-content:center;text-align:center}
 [data-theme="dark"] .wl-cta{background:#EBA96A;color:#151B17}
 .wl-import{margin:14px 0 0;font:500 13.5px/1.3 var(--f-text);color:var(--c-ink-2);text-align:center}
@@ -50,6 +50,8 @@ html.reduce .wl-art,html.reduce .wl-hook,html.reduce .wl-points .cell{animation:
 @keyframes wl-art{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
 @keyframes wl-rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media (max-height:740px){
+  .wl-art{top:-168px}
+  .wl-mist{background:linear-gradient(to bottom,transparent 62%,color-mix(in srgb,var(--c-bg) 55%,transparent) 72%,color-mix(in srgb,var(--c-bg) 88%,transparent) 82%,var(--c-bg) 100%)}
   .wl-hook h1{font-size:76px}
   .wl-sub{font-size:14px;line-height:1.3;white-space:nowrap;max-width:none}
   .wl-points .spot{width:44px;height:44px}
