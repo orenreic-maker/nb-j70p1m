@@ -12,7 +12,7 @@ import {
 import { HEALTH, SYSTEMS, healthSummary, withState } from './health.js';
 import { ACH, GROUPS, achVal } from './achievements.js';
 import { MESSAGES, TRIGGERS, TIPS, g, triggerById } from './copy.js';
-import { bindOnboard, onboardScreen, productFields } from './onboard-view.js';
+import { bindOnboard, dateFieldHtml, onboardScreen, productFields } from './onboard-view.js';
 import { checkText } from './filter.js';
 import { insightFor, weekStats } from './insights.js';
 import { showPlaceholder } from './ads.js';
@@ -990,7 +990,7 @@ function editorSheet() {
   let inner = '';
   if (ed === 'date') {
     const t = s.quitAt || now();
-    inner = `<div class="h1">יום ההפסקה</div><p class="lead">${esc(hebDate(t))}</p><div class="field"><label for="edit-date">יום ושעה</label><div class="input"><input id="edit-date" class="num-ltr" dir="ltr" type="datetime-local" value="${toLocal(t)}"></div></div>`;
+    inner = `<div class="h1">יום ההפסקה</div><p class="lead">${esc(hebDate(Math.min(t, now())))}</p><div class="field"><label for="edit-date">יום ושעה</label>${dateFieldHtml('edit-date', toLocal(Math.min(t, now())))}</div>`;
   }
   if (ed === 'cpd') inner = `<div class="h1">כמה ביום</div><div class="field"><div class="input"><input id="edit-cpd" class="num-ltr" dir="ltr" inputmode="numeric" value="${esc(s.cpd ?? '')}"></div></div><div class="field"><label>דקות חיים לסיגריה (הערכה)</label><div class="input"><input id="edit-mpc" class="num-ltr" dir="ltr" inputmode="numeric" value="${s.mpc}"></div></div>`;
   if (ed === 'goal') inner = `<div class="h1">יעד חיסכון</div><div class="field"><div class="input ${checkText(ui.goal || s.goalName || '', 'goal') ? 'bad' : ''}"><input id="edit-goal" placeholder="טיול, מתנה, חוויה" value="${esc(s.goalName || '')}"></div></div><p class="ob-err" data-filter="goal" hidden></p><div class="field"><div class="input"><input id="edit-goalp" class="num-ltr" dir="ltr" inputmode="numeric" placeholder="סכום" value="${s.goalPrice || ''}"><span class="unit">₪</span></div></div>`;

@@ -2,7 +2,7 @@ import { icon } from './icons.js';
 import { haptic } from './native.js';
 import { st } from './store.js';
 import { ui } from './ui-state.js';
-import { esc, hebDate, nf } from './calc.js';
+import { esc, hebDate, localInputValue, nf } from './calc.js';
 import { checkText } from './filter.js';
 import {
   GPC, PACK_DEFAULT, RYO_GRAMS_DEFAULT, RYO_PRICE_DEFAULT,
@@ -108,6 +108,30 @@ function aboutStep() {
   </div>`;
 }
 
+/** Hebrew label with a real datetime-local control covering it, so a tap opens the iOS picker. */
+export function dateFieldHtml(id, value) {
+  const max = localInputValue(Date.now());
+  const safe = value && new Date(value).getTime() > Date.now() ? max : (value || '');
+  return `<div class="ob-datefield${safe ? '' : ' empty'}">
+    <span class="ob-datetext">${esc(safe ? dateLabel(safe) : 'בוחרים יום ושעה')}</span>
+    <input id="${id}" class="ob-datehit" type="datetime-local" enterkeyhint="done" max="${max}" value="${esc(safe)}" aria-label="יום ושעה">
+  </div>`;
+}
+
+export function applyDateInput(input) {
+  if (!input) return '';
+  let value = input.value || '';
+  const t = new Date(value).getTime();
+  if (Number.isFinite(t) && t > Date.now()) {
+    value = localInputValue(Date.now());
+    input.value = value;
+  }
+  const text = input.closest('.ob-datefield')?.querySelector('.ob-datetext');
+  if (text) text.textContent = value ? dateLabel(value) : 'בוחרים יום ושעה';
+  input.closest('.ob-datefield')?.classList.toggle('empty', !value);
+  return value;
+}
+
 function dateLabel(value) {
   if (!value) return 'בוחרים יום ושעה';
   const t = new Date(value).getTime();
@@ -124,7 +148,7 @@ function dateStep() {
     <p class="ob-sub">מכאן מתחילים לספור.</p>
     <button type="button" class="choice ${ui.dateMode === 'now' ? 'on' : ''}" data-act="date-mode" data-mode="now"><div class="radio"></div><div><div class="h2">עכשיו</div><div class="small">מתחילים לספור מהרגע הזה</div></div></button>
     <button type="button" class="choice ${past ? 'on' : ''}" data-act="date-mode" data-mode="past"><div class="radio"></div><div><div class="h2">כבר הפסקתי</div><div class="small">בוחרים את היום והשעה</div></div></button>
-    ${past ? `<label class="ob-lbl" for="qdt">יום ושעה</label><button type="button" class="input ob-datelabel" data-act="open-date"><span>${esc(dateLabel(ui.dateValue))}</span></button><input id="qdt" class="ob-native num-ltr" type="datetime-local" dir="ltr" value="${esc(ui.dateValue || '')}"><p class="ob-hint">אפשר לשנות בכל רגע בהגדרות.</p>` : ''}
+    ${past ? `<label class="ob-lbl" for="qdt">יום ושעה</label>${dateFieldHtml('qdt', ui.dateValue)}<p class="ob-hint">אפשר לשנות בכל רגע בהגדרות.</p>` : ''}
   </div>`;
 }
 
