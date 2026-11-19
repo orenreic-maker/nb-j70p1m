@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { ACH, syncUnlocks } from './achievements.js';
 import { adsAllowed, syncBanner } from './ads.js';
 import { DAY, HOUR, MIN, ils, localInputValue, ppcOf } from './calc.js';
+import { phaseAt } from './breath.js';
 import { HEALTH } from './health.js';
 import { applyCheckin, applySlip, applyWin, blank, deleteSlip, migrate, parseBackup, updateSlip } from './model.js';
 import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, pickJsonNative, sharePayload, syncNotifications, writeCacheFile } from './native.js';
@@ -104,29 +105,39 @@ async function logWin({ dur = 0 } = {}) {
   await persist();
 }
 
+const SOS_SECONDS = 600;
+
 function stopSos() {
   if (!sos) return;
   clearTimeout(sos.timer);
-  clearInterval(sos.tick);
   clearInterval(tipTimer);
+  document.removeEventListener('visibilitychange', resumeSos);
   sos = null;
 }
 
 function startSos() {
   if (sos) return;
-  sos = { start: now(), phase: 0, tip: 0 };
+  // One clock drives both counters: whole seconds since t0.
+  sos = { t0: Date.now(), start: Date.now(), offset: 0, step: -1, tip: 0, timer: 0 };
   ui.route = 'sos';
   ui.overlay = null;
   render();
-  runPhase(0);
-  sos.tick = setInterval(patchSos, 250);
+  sosTick();
   tipTimer = setInterval(() => {
     if (!sos) return;
     sos.tip = (sos.tip + 1) % 10;
     const el = document.querySelector('[data-live=tip]');
-    if (el) el.textContent = document.querySelector('[data-live=tip]') ? tipsAt(sos.tip) : '';
+    if (el) el.textContent = tipsAt(sos.tip);
   }, 11000);
+  document.addEventListener('visibilitychange', resumeSos);
   if (st.settings.haptics) haptic('light');
+}
+
+/** After the screen locks, timers stall. Repaint from the clock instead of resuming a stale chain. */
+function resumeSos() {
+  if (!sos || document.hidden) return;
+  sos.step = -1;
+  sosTick();
 }
 
 function tipsAt(i) {
@@ -134,39 +145,41 @@ function tipsAt(i) {
   return list[i % list.length];
 }
 
-function runPhase(i) {
+const secondsLeft = (n) => (n === 1 ? 'עוד שנייה' : `עוד ${n} שניות`);
+
+/** Runs once per second, on the second boundary of t0, so both counters change in the same frame. */
+function sosTick() {
   if (!sos) return;
-  const P = PHASES[ui.breathMode];
-  const [name, sec, scale] = P[i % P.length];
-  sos.phase = i;
-  sos.phaseEnd = Date.now() + sec * 1000;
-  sos.name = name;
-  const blobs = document.querySelector('.blobs');
-  if (blobs) {
-    blobs.style.transitionDuration = reduced() ? '0.01s' : `${sec}s`;
-    blobs.style.transform = `scale(${scale})`;
-    if (reduced()) blobs.style.opacity = scale > 0.9 ? '1' : '0.72';
-  }
-  document.querySelectorAll('[data-phase]').forEach((el) => el.classList.toggle('on', +el.dataset.phase === i % P.length));
-  const ph = document.querySelector('[data-live=phase]');
-  if (ph) ph.textContent = name;
-  if (i && st.settings.haptics) haptic('light');
+  const ms = Date.now() - sos.t0;
+  paintSos(Math.floor(ms / 1000));
   clearTimeout(sos.timer);
-  sos.timer = setTimeout(() => runPhase(i + 1), sec * 1000);
+  sos.timer = setTimeout(sosTick, 1000 - (ms % 1000) + 4);
 }
 
-function patchSos() {
-  if (!sos) return;
-  const left = Math.max(0, 600 - Math.floor((Date.now() - sos.start) / 1000));
+function paintSos(sec) {
+  const P = PHASES[ui.breathMode];
+  const ph = phaseAt(P, sec - sos.offset);
+  if (ph.step !== sos.step) {
+    sos.step = ph.step;
+    const [name, , scale] = P[ph.i];
+    const blobs = document.querySelector('.blobs');
+    if (blobs) {
+      blobs.style.transitionDuration = reduced() ? '0.01s' : `${ph.left}s`;
+      blobs.style.transform = `scale(${scale})`;
+      if (reduced()) blobs.style.opacity = scale > 0.9 ? '1' : '0.72';
+    }
+    document.querySelectorAll('[data-phase]').forEach((el) => el.classList.toggle('on', +el.dataset.phase === ph.i));
+    const label = document.querySelector('[data-live=phase]');
+    if (label) label.textContent = name;
+    if (ph.step > 0 && st.settings.haptics) haptic('light');
+  }
+  const left = Math.max(0, SOS_SECONDS - sec);
   const clock = document.querySelector('[data-live=sosclock]');
   if (clock) clock.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   const phaseLeft = document.querySelector('[data-live=phaseleft]');
-  if (phaseLeft) phaseLeft.textContent = `עוד ${Math.max(1, Math.ceil((sos.phaseEnd - Date.now()) / 1000))} שניות`;
+  if (phaseLeft) phaseLeft.textContent = secondsLeft(ph.left);
   const wave = document.querySelector('[data-live=wave]');
-  if (wave) {
-    const shown = Math.round((1 - left / 600) * 334);
-    wave.setAttribute('stroke-dasharray', `${shown} 2000`);
-  }
+  if (wave) wave.setAttribute('stroke-dasharray', `${Math.round((1 - left / SOS_SECONDS) * 334)} 2000`);
   if (left === 0 && !sos.done) {
     sos.done = true;
     toast('10 דקות עברו. הגל יכול לעבור גם בלי סיגריה.');
@@ -473,7 +486,15 @@ const actions = {
   'sos-close'() { stopSos(); ui.route = 'home'; render(); },
   'sos-won'() { const dur = sos ? Date.now() - sos.start : 0; logWin({ dur }); },
   'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
-  breath(el) { ui.breathMode = el.dataset.mode; if (sos) { clearTimeout(sos.timer); render(); runPhase(0); } else render(); },
+  breath(el) {
+    ui.breathMode = el.dataset.mode;
+    render();
+    if (!sos) return;
+    // The new pattern starts on the current second; the wave clock keeps running.
+    sos.offset = Math.floor((Date.now() - sos.t0) / 1000);
+    sos.step = -1;
+    sosTick();
+  },
   win() { logWin({ dur: 0 }); },
   'open-checkin'() { ui.overlay = 'checkin'; ui.route = 'home'; render(); },
   slip() { openSlipSheet('home'); },
