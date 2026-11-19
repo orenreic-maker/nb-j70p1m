@@ -23,6 +23,12 @@ export function costParts(s = {}) {
     const per = num(s.perPack);
     return { pack: pack > 0 && per > 0 ? pack / per : 0 };
   }
+  if (s.priceModel === 'simple') {
+    const grams = num(s.tobGrams);
+    const price = num(s.tobPrice);
+    const tob = price > 0 && grams > 0 ? price / (grams / 0.6) : 0;
+    return { tob, kit: 0.11 };
+  }
   const tob = num(s.tobPrice) > 0 && num(s.tobGrams) > 0 && num(s.gpc) > 0
     ? (num(s.tobPrice) / num(s.tobGrams)) * num(s.gpc) : 0;
   const pap = num(s.papPrice) > 0 && num(s.papLeaves) > 0 ? num(s.papPrice) / num(s.papLeaves) : 0;
@@ -132,7 +138,7 @@ export function nf(n, d = 0) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 export function ils(n, d = 0) {
-  return `₪${nf(n, d)}`;
+  return `${nf(n, d)} ₪`;
 }
 
 export function plural(n, one, two, many) {

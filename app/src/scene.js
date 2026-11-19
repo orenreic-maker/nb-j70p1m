@@ -10,7 +10,7 @@ export function mark(size = 26, dark = false) {
 
 export function wordmark(size = 17, dark = false) {
   const c = dark ? '#EFE7D8' : '#2F3A2B';
-  return `<span class="wordmark">${mark(Math.round(size * 1.5), dark)}<span class="wm-name" style="font:600 ${size}px/1 'Plex Hebrew',sans-serif;letter-spacing:-.2px;color:${c}">${WORDMARK}</span></span>`;
+  return `<span class="wordmark">${mark(Math.round(size * 1.5), dark)}<bdi dir="ltr" class="wm-name num-ltr" style="font:600 ${size}px/1 'Plex Hebrew',sans-serif;letter-spacing:-.2px;color:${c}">${WORDMARK}</bdi></span>`;
 }
 
 export function scene(w = 390, h = 430, dark = false, stones = 4, total = 7) {

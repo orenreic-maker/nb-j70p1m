@@ -1,8 +1,11 @@
 import { APP } from './config.js';
 import { isNative } from './native.js';
 
+/** Placeholder until the store returns a real price. Not a charged amount. */
+export const REMOVE_ADS_PRICE_PLACEHOLDER = '14.90 ₪';
+
 export function priceLabel() {
-  return APP.removeAdsPriceLabel || '₪14.90';
+  return REMOVE_ADS_PRICE_PLACEHOLDER;
 }
 
 export async function buyRemoveAds() {

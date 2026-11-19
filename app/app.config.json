@@ -3,7 +3,7 @@
   "appName": "BreathAnew",
   "adsEnabled": false,
   "removeAdsProductId": "com.orenreic.breathanew.removeads",
-  "removeAdsPriceLabel": "₪14.90",
+  "removeAdsPriceLabel": "14.90 ₪",
   "admob": {
     "androidAppId": "ca-app-pub-3940256099942544~3347511713",
     "iosAppId": "ca-app-pub-3940256099942544~1458002511",

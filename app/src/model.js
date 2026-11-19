@@ -7,6 +7,13 @@ export function blank() {
     seenJournalWhy: false,
     settings: {
       name: '',
+      gender: 'x',
+      ageOk: false,
+      brandId: '',
+      brandLabel: '',
+      costSource: '',
+      priceModel: '',
+      lastBackup: null,
       years: 0,
       quitAt: null,
       mode: null,
@@ -73,6 +80,13 @@ export function migrate(raw) {
   s.goalName = String(s.goalName || '').trim();
   s.goalPrice = Number.isFinite(+s.goalPrice) && +s.goalPrice > 0 ? +s.goalPrice : 0;
   s.name = String(s.name || '').trim();
+  if (s.gender !== 'm' && s.gender !== 'f' && s.gender !== 'x') s.gender = 'x';
+  s.ageOk = !!s.ageOk || !!(raw.onboarded || s.quitAt);
+  s.brandId = String(s.brandId || '');
+  s.brandLabel = String(s.brandLabel || '').trim();
+  s.costSource = String(s.costSource || '');
+  s.priceModel = s.priceModel === 'simple' ? 'simple' : '';
+  s.lastBackup = Number.isFinite(+s.lastBackup) ? +s.lastBackup : null;
   s.photo = typeof s.photo === 'string' ? s.photo : '';
   if (s.theme !== 'light' && s.theme !== 'dark' && s.theme !== 'auto') {
     s.theme = raw.settings?.theme === 'light' ? 'light' : raw.settings?.theme === 'dark' ? 'dark' : 'auto';
