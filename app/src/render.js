@@ -247,7 +247,7 @@ function runHealthIntro() {
 
 function view() {
   switch (ui.route) {
-    case 'onboard': return onboard();
+    case 'onboard': return `${onboard()}${toast()}`;
     case 'sos': return sos();
     case 'health': return screen(health(), 'health');
     case 'badges': return screen(badges(), 'pocket');

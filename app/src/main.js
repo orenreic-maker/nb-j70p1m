@@ -3,7 +3,7 @@ import { ACH, syncUnlocks } from './achievements.js';
 import { adsAllowed, syncBanner } from './ads.js';
 import { DAY, HOUR, MIN, ils, ppcOf } from './calc.js';
 import { HEALTH } from './health.js';
-import { applyCheckin, applySlip, applyWin, blank, migrate } from './model.js';
+import { applyCheckin, applySlip, applyWin, blank, migrate, parseBackup } from './model.js';
 import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, sharePayload, syncNotifications, writeCacheFile } from './native.js';
 import { buyRemoveAds, restoreRemoveAds } from './purchases.js';
 import { livePatch, render, theme } from './render.js';
@@ -207,8 +207,7 @@ async function finishOnboarding() {
 }
 
 async function importText(text) {
-  const data = JSON.parse(text);
-  if (!data?.settings || !Number.isFinite(+data.settings.quitAt)) throw new Error('bad');
+  const data = parseBackup(text);
   const next = migrate(data);
   next.onboarded = true;
   Object.assign(st, next);
@@ -220,12 +219,48 @@ async function importText(text) {
   toast('הגיבוי נכנס. הנתונים נשארים רק במכשיר הזה.');
 }
 
+// iOS WKWebView/Safari can drop a detached <input type=file> before its change
+// event fires, so the picker is attached to the page until a file arrives.
 function filePick(accept, cb) {
+  document.querySelectorAll('input[data-file-pick]').forEach((el) => el.remove());
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = accept;
-  input.onchange = () => { const f = input.files?.[0]; if (f) cb(f); };
+  if (accept) input.accept = accept;
+  input.dataset.filePick = '1';
+  input.setAttribute('aria-hidden', 'true');
+  input.tabIndex = -1;
+  input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+  let done = false;
+  const handle = () => {
+    const f = input.files?.[0];
+    if (!f || done) return;
+    done = true;
+    input.remove();
+    cb(f);
+  };
+  input.addEventListener('change', handle);
+  input.addEventListener('input', handle);
+  input.addEventListener('cancel', () => input.remove());
+  document.body.appendChild(input);
   input.click();
+}
+
+function readFileText(f) {
+  if (typeof f.text === 'function') return f.text();
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result || ''));
+    r.onerror = () => rej(r.error);
+    r.readAsText(f);
+  });
+}
+
+// No accept filter: iOS greys out .json files saved from Safari (or renamed .txt)
+// when accept is set, and importText validates the content anyway.
+function pickBackup() {
+  filePick('', async (f) => {
+    try { await importText(await readFileText(f)); } catch { toast('הקובץ לא נראה כמו גיבוי'); }
+  });
 }
 
 async function compress(file) {
@@ -479,7 +514,7 @@ const actions = {
   async set(el) {
     const k = el.dataset.set;
     if (k === 'export') return exportBackup();
-    if (k === 'import') return filePick('application/json', async (f) => { try { await importText(await f.text()); } catch { toast('הקובץ לא נראה כמו גיבוי'); } });
+    if (k === 'import') return pickBackup();
     if (k === 'reset') {
       if (!confirm('למחוק את כל הנתונים מהמכשיר?')) return;
       if (!confirm('בלי גיבוי אי אפשר לשחזר. למחוק?')) return;
@@ -565,7 +600,7 @@ const actions = {
     }
     render();
   },
-  import() { filePick('.json,application/json', async (f) => { try { await importText(await f.text()); } catch { toast('הקובץ לא נראה כמו גיבוי'); } }); },
+  import() { pickBackup(); },
 };
 
 function obMissing() {
