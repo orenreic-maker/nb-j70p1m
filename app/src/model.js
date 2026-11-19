@@ -160,3 +160,11 @@ export function applyCheckin(st, v) {
   else st.checkins.push(rec);
   return rec;
 }
+
+// Backup files may carry a BOM or stray whitespace (iOS Files, editors).
+export function parseBackup(text) {
+  const clean = String(text ?? '').replace(/^\uFEFF/, '').trim();
+  const data = JSON.parse(clean);
+  if (!data?.settings || data.settings.quitAt == null || !Number.isFinite(+data.settings.quitAt)) throw new Error('bad');
+  return data;
+}

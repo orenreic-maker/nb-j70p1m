@@ -86,3 +86,15 @@ test('original 23 achievement ids are still here', () => {
   }
   assert.ok(ids.has('log1') && ids.has('streak7') && ids.has('trigTop') && ids.has('k100'));
 });
+
+test('backup parsing tolerates a BOM and whitespace and rejects junk', async () => {
+  const { parseBackup } = await import('../src/model.js');
+  const st = blank();
+  st.settings.quitAt = 1700000000000;
+  const json = JSON.stringify(st, null, 2);
+  assert.equal(parseBackup(json).settings.quitAt, 1700000000000);
+  assert.equal(parseBackup('\uFEFF\n  ' + json + '\n\n').settings.quitAt, 1700000000000);
+  assert.throws(() => parseBackup('hello'));
+  assert.throws(() => parseBackup('{"a":1}'));
+  assert.throws(() => parseBackup(JSON.stringify(blank())));
+});
