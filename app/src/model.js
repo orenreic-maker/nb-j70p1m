@@ -111,7 +111,15 @@ export function migrate(raw) {
     settings: s,
     cravings: arr(raw.cravings),
     checkins: arr(raw.checkins),
-    slips: arr(raw.slips),
+    slips: arr(raw.slips).map((s) => ({
+      id: s?.id || uid(),
+      t: Number.isFinite(+s?.t) ? +s.t : Date.now(),
+      cigs: Math.max(0, Math.round(+s?.cigs || 0)),
+      note: String(s?.note || ''),
+      triggers: arr(s?.triggers).map((x) => String(x)),
+      intensity: s?.intensity ?? null,
+      restart: !!s?.restart,
+    })),
     attempts: arr(raw.attempts),
     unlocked: { ...(raw.unlocked || {}) },
     healthUnlocked: { ...(raw.healthUnlocked || {}) },
@@ -122,28 +130,59 @@ export function migrate(raw) {
   };
 }
 
+function originQuit(st) {
+  const starts = (st.attempts || []).map((a) => +a.start).filter(Number.isFinite);
+  if (Number.isFinite(+st.settings?.quitAt)) starts.push(+st.settings.quitAt);
+  return starts.length ? Math.min(...starts) : null;
+}
+
+/** Replay restart slips so quit date, archived runs, home, and body stay in step. */
+export function syncSlipClock(st) {
+  const origin = originQuit(st);
+  if (origin == null) return;
+  const restarts = (st.slips || []).filter((s) => s.restart && s.t > origin).sort((a, b) => a.t - b.t);
+  if (!restarts.length && !(st.attempts || []).length) return;
+  const attempts = [];
+  let q = origin;
+  for (const s of restarts) {
+    attempts.push({ start: q, end: s.t, cpd: st.settings.cpd || 0, ppc: ppcOf(st.settings) });
+    st.longest = Math.max(st.longest || 0, s.t - q);
+    q = s.t;
+  }
+  st.attempts = attempts;
+  st.settings.quitAt = q;
+}
+
 export function applySlip(st, v) {
-  const now = v.now;
+  const when = Math.min(Date.now(), Number.isFinite(+v.now) ? +v.now : Date.now());
   const slip = {
-    id: uid(), t: now,
+    id: v.id || uid(), t: when,
     cigs: Math.max(0, Math.round(+v.cigs || 0)),
     note: String(v.note || '').trim(),
     triggers: v.triggers || [],
     intensity: v.intensity ?? null,
     restart: v.mode === 'restart',
   };
-  if (v.mode === 'restart') {
-    const q = st.settings.quitAt;
-    if (q != null) {
-      st.longest = Math.max(st.longest || 0, now - q);
-      st.attempts.push({ start: q, end: now, cpd: st.settings.cpd || 0, ppc: ppcOf(st.settings) });
-    }
-    st.slips.push(slip);
-    st.settings.quitAt = now;
-  } else {
-    st.slips.push(slip);
-  }
+  st.slips.push(slip);
+  syncSlipClock(st);
   return slip;
+}
+
+export function updateSlip(st, id, v) {
+  const slip = (st.slips || []).find((s) => s.id === id);
+  if (!slip) return null;
+  slip.t = Math.min(Date.now(), Number.isFinite(+v.now) ? +v.now : slip.t);
+  slip.cigs = Math.max(0, Math.round(+v.cigs || 0));
+  slip.note = String(v.note || '').trim();
+  slip.triggers = v.triggers || [];
+  slip.restart = v.mode === 'restart';
+  syncSlipClock(st);
+  return slip;
+}
+
+export function deleteSlip(st, id) {
+  st.slips = (st.slips || []).filter((s) => s.id !== id);
+  syncSlipClock(st);
 }
 
 export function applyWin(st, v) {

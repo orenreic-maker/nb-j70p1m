@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DAY, HOUR, MIN, cigsAt, moneyAt, ppcOf, fmtLife } from '../src/calc.js';
-import { applySlip, blank, migrate } from '../src/model.js';
-import { HEALTH } from '../src/health.js';
+import { DAY, HOUR, MIN, cigsAt, keepSlips, lastSmokeAt, moneyAt, ppcOf, fmtLife } from '../src/calc.js';
+import { applySlip, blank, deleteSlip, migrate, updateSlip } from '../src/model.js';
+import { HEALTH, RESTARTS, withSlips } from '../src/health.js';
 import { ACH } from '../src/achievements.js';
 
 test('rolled-tobacco formula matches the brief', () => {
@@ -54,6 +54,32 @@ test('restart keeps the previous streak and the journal', () => {
   assert.equal(st.cravings.length, 1);
   assert.equal(st.attempts.length, 1);
   assert.ok(st.longest >= DAY);
+});
+
+test('kept slips move the body clock and an edit recomputes it', () => {
+  assert.equal(RESTARTS.size, 12);
+  assert.ok(RESTARTS.has('n-72h'));
+  assert.equal(RESTARTS.has('l-1w'), false);
+  const st = blank();
+  st.settings.quitAt = 0;
+  st.settings.cpd = 10;
+  st.settings.mode = 'pack';
+  st.settings.packPrice = 40;
+  st.settings.perPack = 20;
+  applySlip(st, { now: 2 * DAY, cigs: 3, note: '', triggers: ['coffee'], mode: 'keep' });
+  assert.equal(st.settings.quitAt, 0);
+  assert.equal(lastSmokeAt(st), 2 * DAY);
+  assert.equal(keepSlips(st).length, 1);
+  const steps = withSlips(3 * DAY, DAY);
+  assert.equal(steps.find((h) => h.id === 'air-20m').status, 'done');
+  assert.equal(steps.find((h) => h.id === 'l-1w').status, 'now');
+  assert.equal(steps.find((h) => h.id === 'n-72h').again, true);
+  updateSlip(st, st.slips[0].id, { now: DAY, cigs: 1, note: 'עודכן', triggers: [], mode: 'keep' });
+  assert.equal(st.slips[0].cigs, 1);
+  assert.equal(lastSmokeAt(st), DAY);
+  deleteSlip(st, st.slips[0].id);
+  assert.equal(st.slips.length, 0);
+  assert.equal(lastSmokeAt(st), 0);
 });
 
 test('old backup migrates without keeping kids text', () => {

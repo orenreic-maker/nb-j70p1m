@@ -1,9 +1,9 @@
 import { Capacitor } from '@capacitor/core';
 import { ACH, syncUnlocks } from './achievements.js';
 import { adsAllowed, syncBanner } from './ads.js';
-import { DAY, HOUR, MIN, ils, ppcOf } from './calc.js';
+import { DAY, HOUR, MIN, ils, localInputValue, ppcOf } from './calc.js';
 import { HEALTH } from './health.js';
-import { applyCheckin, applySlip, applyWin, blank, migrate, parseBackup } from './model.js';
+import { applyCheckin, applySlip, applyWin, blank, deleteSlip, migrate, parseBackup, updateSlip } from './model.js';
 import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, pickJsonNative, sharePayload, syncNotifications, writeCacheFile } from './native.js';
 import { buyRemoveAds, restoreRemoveAds } from './purchases.js';
 import { livePatch, render, theme } from './render.js';
@@ -404,7 +404,7 @@ function registerPreviewWorker() {
 }
 
 function applyShot(shot) {
-  const demoShots = new Set(['home', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'insight', 'checkin', 'unlock']);
+  const demoShots = new Set(['home', 'homeclean', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'slips', 'slipedit', 'slipdel', 'insight', 'checkin', 'unlock']);
   if (demoShots.has(shot)) {
     useMemory(demoState());
     syncUnlocks(st, now());
@@ -419,7 +419,8 @@ function applyShot(shot) {
   }
   if (shot === 'why') { ui.route = 'onboard'; ui.obStep = 5; ui.habitMode = 'pack'; ui.cpd = 11; ui.gender = 'f'; ui.ageOk = true; ui.dateMode = 'now'; }
   if (shot === 'wipe') { ui.route = 'settings'; ui.overlay = 'wipe'; }
-  if (shot === 'home') ui.route = 'home';
+  if (shot === 'home' || shot === 'homeclean') ui.route = 'home';
+  if (shot === 'homeclean') st.slips = [];
   if (shot === 'sos') { ui.route = 'sos'; }
   if (shot === 'health') ui.route = 'health';
   if (shot === 'badges') ui.route = 'badges';
@@ -432,7 +433,16 @@ function applyShot(shot) {
   if (shot === 'settings2') { ui.route = 'settings'; ui.scroll = 640; }
   if (shot === 'share') ui.route = 'share';
   if (shot === 'week') ui.route = 'week';
-  if (shot === 'slip') { ui.route = 'home'; ui.overlay = 'slip'; }
+  if (shot === 'slip' || shot === 'slipedit' || shot === 'slipdel') {
+    ui.route = shot === 'slip' ? 'home' : 'journal';
+    ui.journalTab = 'history';
+    ui.histFilter = 'slip';
+    primeSlip(shot === 'slipedit' || shot === 'slipdel' ? st.slips.at(-1) : null);
+    ui.overlay = shot === 'slipdel' ? 'slipdel' : (shot === 'slipedit' ? 'slip' : 'slip');
+    if (shot === 'slipdel') ui.slipDeleteId = st.slips.at(-1)?.id || null;
+    if (shot === 'slip') ui.overlay = 'slip';
+  }
+  if (shot === 'slips') { ui.route = 'journal'; ui.journalTab = 'history'; ui.histFilter = 'slip'; ui.overlay = null; }
   if (shot === 'slipdone') ui.route = 'slipdone';
   if (shot === 'insight') { ui.route = 'home'; ui.overlay = 'insight'; ui.insightId = st.cravings.at(-1)?.id; }
   if (shot === 'checkin') { ui.route = 'journal'; ui.overlay = 'checkin'; }
@@ -462,26 +472,61 @@ const actions = {
   sos() { startSos(); },
   'sos-close'() { stopSos(); ui.route = 'home'; render(); },
   'sos-won'() { const dur = sos ? Date.now() - sos.start : 0; logWin({ dur }); },
-  'sos-slip'() { stopSos(); ui.route = 'home'; ui.overlay = 'slip'; render(); },
+  'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
   breath(el) { ui.breathMode = el.dataset.mode; if (sos) { clearTimeout(sos.timer); render(); runPhase(0); } else render(); },
   win() { logWin({ dur: 0 }); },
   'open-checkin'() { ui.overlay = 'checkin'; ui.route = 'home'; render(); },
-  slip() { ui.overlay = 'slip'; render(); },
+  slip() { openSlipSheet('home'); },
+  'slip-add'() { openSlipSheet('log'); },
+  'open-slips'() { ui.route = 'journal'; ui.journalTab = 'history'; ui.histFilter = 'slip'; ui.overlay = null; render(); },
+  'hist-f'(el) { ui.histFilter = el.dataset.id; render(); },
+  'slip-edit'(el) {
+    primeSlip(st.slips.find((s) => s.id === el.dataset.id));
+    ui.slipFrom = 'log';
+    ui.overlay = 'slip';
+    render();
+  },
+  'slip-ask-del'(el) { ui.slipDeleteId = el.dataset.id; ui.overlay = 'slipdel'; render(); },
+  async 'slip-del-yes'() {
+    if (ui.slipDeleteId) deleteSlip(st, ui.slipDeleteId);
+    ui.slipDeleteId = null;
+    ui.overlay = null;
+    ui.route = 'journal';
+    ui.journalTab = 'history';
+    ui.histFilter = 'slip';
+    syncUnlocks(st, now());
+    await persist();
+  },
   'overlay-off'() { ui.overlay = null; ui.editor = null; render(); },
-  'slip-n'(el) { ui.slipCigs = Math.max(0, Math.min(40, ui.slipCigs + (+el.dataset.d || 0))); render(); },
-  'slip-mode'(el) { ui.slipMode = el.dataset.mode; render(); },
+  'slip-n'(el) {
+    readSlipDraft();
+    ui.slipCigs = Math.max(0, Math.min(40, ui.slipCigs + (+el.dataset.d || 0)));
+    render();
+  },
+  'slip-mode'(el) { readSlipDraft(); ui.slipMode = el.dataset.mode; render(); },
   'slip-trig'(el) {
+    readSlipDraft();
     const id = el.dataset.id;
     ui.slipTriggers = ui.slipTriggers.includes(id) ? ui.slipTriggers.filter((x) => x !== id) : [...ui.slipTriggers, id];
     render();
   },
   async 'slip-save'() {
-    ui.slipNote = document.getElementById('slipnote')?.value || '';
-    applySlip(st, { now: now(), cigs: ui.slipCigs, note: ui.slipNote, triggers: ui.slipTriggers, mode: ui.slipMode, intensity: null });
+    readSlipDraft();
+    const when = Math.min(Date.now(), new Date(ui.slipWhen).getTime() || Date.now());
+    const payload = { now: when, cigs: ui.slipCigs, note: ui.slipNote, triggers: ui.slipTriggers, mode: ui.slipMode, intensity: null };
+    const editing = ui.slipEditId;
+    const fromLog = ui.slipFrom === 'log' || editing;
+    if (editing) updateSlip(st, editing, payload);
+    else applySlip(st, payload);
     syncUnlocks(st, now());
     ui.overlay = null;
-    ui.route = 'slipdone';
+    ui.slipEditId = null;
     ui.slipTriggers = [];
+    if (fromLog) {
+      ui.route = 'journal';
+      ui.journalTab = 'history';
+      ui.histFilter = 'slip';
+    } else ui.route = 'slipdone';
     beep('slip');
     await persist();
   },
@@ -700,6 +745,43 @@ const actions = {
   import() { pickBackup(); },
 };
 
+function openSlipSheet(from) {
+  ui.slipFrom = from;
+  ui.slipEditId = null;
+  ui.slipCigs = 1;
+  ui.slipMode = 'keep';
+  ui.slipTriggers = [];
+  ui.slipNote = '';
+  ui.slipWhen = localInputValue(now());
+  ui.overlay = 'slip';
+  render();
+}
+
+function primeSlip(slip) {
+  if (!slip) {
+    ui.slipEditId = null;
+    ui.slipCigs = 1;
+    ui.slipMode = 'keep';
+    ui.slipTriggers = [];
+    ui.slipNote = '';
+    ui.slipWhen = localInputValue(now());
+    return;
+  }
+  ui.slipEditId = slip.id;
+  ui.slipCigs = Math.max(0, Math.round(+slip.cigs || 0));
+  ui.slipMode = slip.restart ? 'restart' : 'keep';
+  ui.slipTriggers = [...(slip.triggers || [])];
+  ui.slipNote = slip.note || '';
+  ui.slipWhen = localInputValue(slip.t);
+}
+
+function readSlipDraft() {
+  const note = document.getElementById('slipnote');
+  if (note) ui.slipNote = note.value;
+  const when = document.getElementById('slip-when');
+  if (when) ui.slipWhen = applyDateInput(when) || when.value || ui.slipWhen;
+}
+
 async function restore() {
   const res = await restoreRemoveAds();
   if (!isNative()) { toast('שחזור רכישה זמין באפליקציה בחנות'); return; }
@@ -716,12 +798,13 @@ document.body.addEventListener('click', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
-  if (e.target.id === 'qdt' || e.target.id === 'edit-date') {
+  if (e.target.id === 'qdt' || e.target.id === 'edit-date' || e.target.id === 'slip-when') {
     const value = applyDateInput(e.target);
     if (e.target.id === 'qdt') {
       ui.dateValue = value;
       document.querySelector('[data-act="ob-next"]')?.classList.toggle('dis', !!obProblems());
     }
+    if (e.target.id === 'slip-when') ui.slipWhen = value;
     return;
   }
   if (e.target.id === 'obphoto' || e.target.id === 'edit-photo') {
