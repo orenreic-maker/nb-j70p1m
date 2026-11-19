@@ -104,7 +104,7 @@ function aboutStep() {
     <div class="ob-lbl">איך לפנות אליך?</div>
     <div class="ob-chips" role="radiogroup">${chip('m', 'זכר')}${chip('f', 'נקבה')}${chip('x', 'אחר')}</div>
     <p class="ob-hint">״אחר״ – נפנה בלשון כללית.</p>
-    <button type="button" class="ob-check ${ui.ageOk ? 'on' : ''}" data-act="age" aria-pressed="${ui.ageOk ? 'true' : 'false'}"><i></i><span>${ageLine()}</span></button>
+    <button type="button" class="ob-check ${ui.ageOk ? 'on' : ''}" data-act="age" aria-pressed="${ui.ageOk ? 'true' : 'false'}"><i class="box">${ui.ageOk ? icon('check', 15, 'currentColor', 2.4) : ''}</i><span>${ageLine()}</span></button>
   </div>`;
 }
 
@@ -178,16 +178,15 @@ function howStep() {
     <h1>כמה עישנת?</h1>
     <div class="ob-lbl">${unit}</div>
     <div class="ob-stepper">
-      <button type="button" data-step="-1" aria-label="פחות">−</button>
-      <button type="button" class="ob-num ${has ? '' : 'empty'}" data-act="cpd-type" data-cpd-num>${has ? esc(String(ui.cpd)) : ''}</button>
-      <button type="button" data-step="1" aria-label="יותר">+</button>
+      <button type="button" class="ob-sbtn" data-step="-1" aria-label="פחות">−</button>
+      <button type="button" class="ob-num ${has ? '' : 'empty'}" data-act="cpd-type" data-cpd-num><b>${has ? esc(String(ui.cpd)) : ''}</b><small data-cpd-cap>${ui.cpdTyping ? 'מקלידים מספר' : 'נגיעה במספר כדי להקליד'}</small></button>
+      <button type="button" class="ob-sbtn" data-step="1" aria-label="יותר">+</button>
     </div>
-    <p class="ob-hint" data-cpd-cap>${ui.cpdTyping ? 'מקלידים מספר' : 'נגיעה במספר כדי להקליד'}</p>
     <label class="ob-lbl" for="years">כמה שנים עישנת? <span>לא חובה</span></label>
     <div class="input"><input id="years" class="num-ltr" dir="ltr" inputmode="numeric" placeholder="למשל 12" value="${esc(ui.years || '')}"><span class="unit">שנים</span></div>
     <div class="ob-sum">
       <div><div class="k">זה יוצא בערך</div><div class="n" data-sum-day>${money(day, 2)}</div><div class="k">ביום</div></div>
-      <div><div class="k">ובשנה</div><div class="n" data-sum-year>${money(year, 0)}</div><div class="k">שחוזרים לכיס</div></div>
+      <div class="y"><div class="k">ובשנה</div><div class="n" data-sum-year>${money(year, 0)}</div><div class="k">שחוזרים לכיס</div></div>
     </div>
   </div>`;
 }
@@ -199,7 +198,7 @@ function whyStep() {
     <label class="ob-lbl" for="obwhy">הסיבה שלי</label>
     <div class="input tall ${checkText(ui.why || '', 'reason') ? 'bad' : ''}"><textarea id="obwhy" placeholder="למשל: לנשום בקלות, להיות שם בשביל הילדים">${esc(ui.why || '')}</textarea></div>
     ${fieldError('reason')}
-    <button type="button" class="ob-photo" data-act="ob-photo">${spot('heart')}<span><b>תמונה שמחזקת</b><small>תופיע במסך הנשימה</small></span>${st.settings.photo ? '<em>נוספה</em>' : ''}</button>
+    <button type="button" class="ob-photo" data-act="ob-photo">${spot('heart')}<span class="tx"><b>תמונה שמחזקת</b><small>תופיע במסך הנשימה</small></span><span class="cam">${icon('camera', 18)}${st.settings.photo ? '<i class="got"></i>' : ''}</span></button>
     <input id="obphoto" type="file" accept="image/*" hidden>
     <div class="ob-lbl">ועל מה חוסכים?</div>
     <div class="ob-goal">
@@ -230,10 +229,9 @@ function stepCpd(delta) {
     : (delta > 0 ? 11 : 9);
   ui.cpd = next;
   const num = document.querySelector('[data-cpd-num]');
-  if (num) {
-    num.textContent = String(next);
-    num.classList.remove('empty');
-  }
+  const digit = num?.querySelector('b');
+  if (digit) digit.textContent = String(next);
+  num?.classList.remove('empty');
   paintSummary();
   document.querySelector('[data-act="ob-next"]')?.classList.remove('dis');
   if (st.settings.haptics) haptic('light');
@@ -268,20 +266,21 @@ export function openCpdInput() {
   const el = document.querySelector('[data-cpd-num]');
   if (!el || el.querySelector('input')) return;
   ui.cpdTyping = true;
-  const cap = document.querySelector('[data-cpd-cap]');
+  const cap = el.querySelector('[data-cpd-cap]');
+  const digit = el.querySelector('b');
   if (cap) cap.textContent = 'מקלידים מספר';
   el.classList.remove('empty');
-  el.innerHTML = `<input id="cpd-in" class="num-ltr" dir="ltr" inputmode="numeric" pattern="[0-9]*" value="${ui.cpd ?? ''}">`;
+  if (digit) digit.innerHTML = `<input id="cpd-in" class="num-ltr" dir="ltr" inputmode="numeric" pattern="[0-9]*" value="${ui.cpd ?? ''}">`;
   const input = el.querySelector('input');
   input.focus();
   input.select();
   const commit = () => {
-    if (!el.contains(input)) return;
+    if (!input.isConnected) return;
     const n = parseInt(input.value, 10);
     ui.cpd = Number.isFinite(n) ? Math.max(1, Math.min(80, n)) : null;
     ui.cpdTyping = false;
     el.classList.toggle('empty', !ui.cpd);
-    el.textContent = ui.cpd ? String(ui.cpd) : '';
+    if (digit) digit.textContent = ui.cpd ? String(ui.cpd) : '';
     if (cap) cap.textContent = 'נגיעה במספר כדי להקליד';
     paintSummary();
     document.querySelector('[data-act="ob-next"]')?.classList.toggle('dis', !ui.cpd);

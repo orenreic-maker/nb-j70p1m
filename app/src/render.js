@@ -788,7 +788,7 @@ function settings() {
         <div class="set-danger"><button type="button" class="btn danger" data-act="set" data-set="wipe">${icon('trash', 18, 'currentColor')}להתחיל מחדש ולמחוק הכול</button><p>מוחק לצמיתות את כל הנתונים מהמכשיר. כדאי לייצא גיבוי קודם.</p></div>
       </section>
       <section class="set-group">${setHead('noads', 'בלי פרסומות')}
-        <button type="button" class="set-buy" data-act="buy"><span><b>${s.adsRemoved ? 'בלי פרסומות · פעיל במכשיר הזה' : 'להסיר את הפרסומות'}</b><small>${s.adsRemoved ? 'התשלום כבר נשמר במכשיר' : 'חד-פעמי. כל הכלים נשארים בחינם.'}</small></span>${s.adsRemoved ? '' : `<em>${priceLabel()}</em>`}</button>
+        <button type="button" class="set-buy" data-act="buy"><span><b>${s.adsRemoved ? 'בלי פרסומות · פעיל במכשיר הזה' : 'להסיר את הפרסומות'}</b><small>${s.adsRemoved ? 'התשלום כבר נשמר במכשיר' : 'חד-פעמי. כל הכלים נשארים בחינם.'}</small></span>${s.adsRemoved ? '' : `<em><bdi dir="ltr">${esc(priceLabel())}</bdi></em>`}</button>
         <div class="set-list">${srow('כבר קניתי – שחזור רכישה', 'למכשיר חדש או אחרי התקנה מחדש', '', 'restore')}</div>
       </section>
       <section class="set-group">${setHead('help', 'עזרה ומידע')}
@@ -810,7 +810,8 @@ function setHead(name, title, sprout = false) {
   return `<div class="set-gh">${img}<h2>${title}</h2></div>`;
 }
 function srow(title, hint, value, act) {
-  const v = value ? `<span class="v">${esc(String(value))}</span>` : '';
+  const shown = esc(String(value ?? '')).replace(/(\d[\d,.]*)\s*₪/g, '<bdi dir="ltr">$1 ₪</bdi>');
+  const v = value ? `<span class="v">${shown}</span>` : '';
   return `<button class="srow" data-act="set" data-set="${act}"><span class="tx"><span class="t">${title}</span><span class="h">${hint}</span></span>${v}${icon('chevron', 14, 'var(--c-ink-3)')}</button>`;
 }
 function stoggle(key, title, hint, on) {

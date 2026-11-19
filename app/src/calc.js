@@ -138,7 +138,7 @@ export function nf(n, d = 0) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 export function ils(n, d = 0) {
-  return `₪${nf(n, d)}`;
+  return `${nf(n, d)} ₪`;
 }
 
 export function plural(n, one, two, many) {
