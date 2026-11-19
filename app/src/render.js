@@ -7,9 +7,9 @@ import { now, save, st } from './store.js';
 import { ui } from './ui-state.js';
 import {
   DAY, MONTH, YEAR, cigsAt, esc, fmtClock, fmtDur, futureValue, greet, hebDate,
-  ils, moneyAt, nf, ppcOf, prevMoney, triggerCounts, checkinStreak, longestAt,
+  ils, keepSlips, lastSmokeAt, moneyAt, nf, ppcOf, prevMoney, triggerCounts, checkinStreak, longestAt,
 } from './calc.js';
-import { HEALTH, SYSTEMS, healthSummary, withState } from './health.js';
+import { HEALTH, SYSTEMS, withSlips } from './health.js';
 import { ACH, GROUPS, achVal } from './achievements.js';
 import { MESSAGES, TRIGGERS, TIPS, g, triggerById } from './copy.js';
 import { bindOnboard, dateFieldHtml, onboardScreen, productFields } from './onboard-view.js';
@@ -33,7 +33,7 @@ function moneyFig(amount, digits = 0, live = '') {
   if (amount == null || !Number.isFinite(amount)) return '<span class="ils">—</span>';
   const n = nf(amount, digits);
   const num = live ? `<span data-live="${live}">${n}</span>` : n;
-  return `<span class="ils"><bdi dir="ltr">${num}<span class="shekel">₪</span></bdi></span>`;
+  return `<span class="ils"><bdi dir="ltr">${num}<span class="shekel"> ₪</span></bdi></span>`;
 }
 function shekelHtml(n, d = 0) { return moneyFig(n, d); }
 
@@ -281,9 +281,13 @@ function home() {
   const days = Math.floor(elapsed / DAY);
   const dark = theme() === 'dark';
   const stones = days <= 0 ? 1 : Math.min(8, days);
-  const sum = q ? healthSummary(elapsed) : null;
-  const next = sum?.next;
-  const latest = sum?.done?.length ? sum.done[sum.done.length - 1] : null;
+  const kept = keepSlips(st);
+  const sinceSmoke = q ? Math.max(0, t - lastSmokeAt(st)) : 0;
+  const hs = q ? withSlips(elapsed, sinceSmoke) : [];
+  const nowSteps = hs.filter((h) => h.status === 'now').sort((a, b) => (a.at - a.e) - (b.at - b.e));
+  const doneSteps = hs.filter((h) => h.status === 'done');
+  const next = q ? nowSteps[0] : null;
+  const latest = doneSteps.length ? doneSteps[doneSteps.length - 1] : null;
   const has = !!(q && st.settings.cpd);
   const money = has ? moneyAt(st, t) : null;
   const parts = moneySplit(money);
@@ -297,11 +301,15 @@ function home() {
   const dayA = days === 1 ? 'יום' : 'ימים';
   const cigA = cigs === 1 ? 'סיגריה' : 'סיגריות';
   const healthLine = next
-    ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
+    ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - (next.e ?? elapsed)), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
     : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
   const goalLine = goal
     ? `<button class="slim" data-act="editor" data-ed="goal">${spot('jar', 36)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}" aria-hidden="true"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>`
     : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 36)}<span class="one">יעד חיסכון</span></button>`;
+  const keptCigs = kept.reduce((a, x) => a + (+x.cigs || 0), 0);
+  const slipLine = kept.length
+    ? `<button class="slim" data-act="open-slips">${spot('sprout', 36)}<span class="col"><span class="one">${fmtDur(sinceSmoke, 2)} מאז הסיגריה האחרונה</span><span class="sub">${keptCigs === 1 ? 'סיגריה אחת' : `${nf(keptCigs, 0)} סיגריות`} מאז ההפסקה · ${kept.length === 1 ? 'מעידה אחת' : `${kept.length} מעידות`} ביומן</span></span>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`
+    : '';
   return `<div class="home screen">
     <header class="home-hero">
       <div class="home-art living${dark ? ' dark' : ''}" data-stage="${stage.id}">${scene.html}</div>
@@ -315,18 +323,19 @@ function home() {
     <div class="home-body">
       ${st.settings.name ? `<p class="hello">${esc(greet(t))}, ${esc(st.settings.name)}</p>` : ''}
       <div class="meters">
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><div class="u"><span data-live="daysa">${dayA}</span><span>בלי עישון</span></div><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi></button>
+        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><div class="u"><span data-live="daysa">${dayA}</span><span>${kept.length ? 'מאז ההפסקה' : 'בלי עישון'}</span></div><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi></button>
         <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num${String(cigs ?? '').length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
         <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num${life.n.length > 4 ? ' long' : ''}" data-roll="life">${life.n}</bdi><div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
       </div>
+      ${slipLine}
       ${healthLine}
       ${goalLine}
       <div class="home-foot">
       <button class="sos" data-act="sos"><span class="w">${spot('breath', 36)}</span><span class="sos-copy"><span class="t1">נושמים יחד</span><span class="t2">עשר דקות, והגל עובר</span></span>${icon('chevron', 18, 'currentColor', 'margin-inline-start:auto;opacity:.7')}</button>
-      <div class="linkrow">
-        <button class="btn text" data-act="win">${icon('check', 16)}רישום חשק</button>
-        <button class="btn text" data-act="open-checkin">${icon('check-in', 16)}איך עבר היום</button>
-        <button class="btn text" data-act="slip">${icon('slip', 16)}רגע קשה</button>
+      <div class="acts">
+        <button data-act="win">${icon('wave', 22, 'var(--c-hill)')}<span>רישום חשק</span></button>
+        <button data-act="open-checkin">${icon('check-in', 22, 'var(--c-hill)')}<span>איך עבר היום</span></button>
+        <button data-act="slip" class="sl">${icon('slip', 22, 'var(--c-clay)')}<span>רישום מעידה</span></button>
       </div>
       ${ad('home')}
       </div>
@@ -547,31 +556,40 @@ function sos() {
       <div class="why">${icon('drop', 22, 'var(--c-clay)')}<div class="small" data-live="tip">${esc(TIPS[0])}</div></div>
     </div>
     <div class="sos-foot"><button class="btn primary" data-act="sos-won" style="width:100%">${icon('growth', 20)}עברתי את זה</button>
-      <button class="btn text" data-act="sos-slip" style="margin:10px auto 0">נרשם רגע קשה</button></div>
+      <button class="btn text" data-act="sos-slip" style="margin:10px auto 0">בכל זאת עישנתי · רישום מעידה</button></div>
   </div>`;
 }
 
 function health() {
   const t = now();
-  const elapsed = st.settings.quitAt ? Math.max(0, t - st.settings.quitAt) : 0;
-  const all = withState(elapsed);
-  const sum = healthSummary(elapsed);
+  const q = st.settings.quitAt;
+  const elapsed = q ? Math.max(0, t - q) : 0;
+  const kept = keepSlips(st);
+  const smokeAt = q ? lastSmokeAt(st) : 0;
+  const all = withSlips(elapsed, q ? Math.max(0, t - smokeAt) : 0);
+  const nowItems = all.filter((h) => h.status === 'now').sort((a, b) => (a.at - a.e) - (b.at - b.e));
+  const doneAll = all.filter((h) => h.status === 'done');
+  const sum = { next: nowItems[0] || null, doneCount: doneAll.length, total: all.length };
   const list = all.filter((h) => ui.healthFilter === 'all' || h.system === ui.healthFilter);
   const done = list.filter((h) => h.status === 'done');
   const rest = list.filter((h) => h.status !== 'done');
   const hidden = !!st.settings.hideDoneHealth;
   const showDone = hidden ? [] : done;
   const next = sum.next;
-  const latest = sum.latest[sum.latest.length - 1];
+  const latest = doneAll[doneAll.length - 1];
+  const whenTxt = smokeAt ? new Date(smokeAt).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const slipNote = kept.length
+    ? `<button class="slipnote" data-act="open-slips">${spot('sprout', 30)}<span><b>מעידה ב־${esc(whenTxt)}</b>. שלבי 72 השעות הראשונות נבנים מחדש ממנה. השלבים הארוכים ממשיכים מיום ההפסקה.</span></button>`
+    : '';
   const fold = done.length
     ? `<button class="fold" data-act="hpast">${hidden ? `הצגת ${done.length} שלבים שהושגו` : 'הסתרת שלבים שהושגו'}</button>`
     : '';
   return `<div class="screen health">
     <div class="appbar"><div class="ttl">הגוף מתאושש</div><div class="eyebrow" style="text-align:end">${sum.doneCount} מתוך ${sum.total}<br>שלבים</div></div>
     <p class="lead" style="padding:4px var(--gutter) 0">מה קורה בגוף מאז הסיגריה האחרונה. הערכות כלליות, לא ייעוץ רפואי.</p>
-    <div class="sum"><div class="eyebrow">מה קורה בגוף עכשיו</div>
+    ${slipNote}<div class="sum"><div class="eyebrow">מה קורה בגוף עכשיו</div>
       <div class="h2" style="font-size:16px;margin-top:6px">${next ? esc(next.title) : latest ? esc(latest.title) : 'המונה עוד לא התחיל.'}</div>
-      ${next ? `<div class="small" style="margin-top:6px">התחנה הבאה · ${esc(next.when)} · בעוד ${fmtDur(Math.max(0, next.at - elapsed), 1)}</div><div class="pb" style="margin-top:10px"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : `<div class="small" style="margin-top:6px">כל התחנות שבמאגר כבר מאחור.</div>`}
+      ${next ? `<div class="small" style="margin-top:6px">התחנה הבאה · ${esc(next.when)}${next.cont && kept.length ? ' מהמעידה' : ''} · בעוד ${fmtDur(Math.max(0, next.at - next.e), 1)}</div><div class="pb" style="margin-top:10px"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : `<div class="small" style="margin-top:6px">כל התחנות שבמאגר כבר מאחור.</div>`}
     </div>
     <div class="pk-sec tight"><div class="h2">הישגים</div>${badgeRow(['time'])}</div>
     <div class="filters">${SYSTEMS.map((s) => `<button data-act="hfilter" data-id="${s.id}" class="${ui.healthFilter === s.id ? 'on' : ''}">${s.label}</button>`).join('')}</div>
@@ -585,17 +603,22 @@ function health() {
 function healthItem(h) {
   const done = h.status === 'done';
   const q = st.settings.quitAt;
-  const ts = done && q ? q + h.at : null;
+  const smoke = q ? lastSmokeAt(st) : q;
+  const base = h.cont ? smoke : q;
+  const ts = done && base != null ? base + h.at : null;
   const got = ts ? hebDate(ts) : '';
+  const again = !!h.again;
+  const first = again && q ? `${new Date(q + h.at).getDate()}.${new Date(q + h.at).getMonth() + 1}` : '';
+  const regained = done && h.cont && q && smoke > q && q + h.at < smoke;
   const node = done
     ? `<div class="nd done">${icon('check', 14, 'var(--c-bg)', 2.2)}</div>`
     : h.status === 'now'
       ? `<div class="nd now">${ring(h.pct || 0)}</div>`
       : `<div class="nd next"></div>`;
   const ic = h.status === 'next' ? 'var(--c-ink-3)' : 'var(--c-clay)';
-  const mark = h.status === 'now' ? '<b class="tag">עכשיו</b>' : done ? '<b class="tag got">הושג</b>' : '';
+  const mark = `${h.status === 'now' ? '<b class="tag">עכשיו</b>' : done ? '<b class="tag got">הושג</b>' : ''}${again ? '<b class="tag re">נבנה מחדש</b>' : ''}`;
   const glyph = hasSpot(h.icon) ? spot(h.icon, 28) : icon(h.icon, 16, ic);
-  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${glyph}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">הושג · ${esc(got)}</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
+  return `<div class="it ${h.status}">${node}<div class="tx"><div class="w">${glyph}<span>${esc(h.when)}</span>${mark}</div><div class="t">${esc(h.title)}</div>${got ? `<div class="gotwhen">${regained ? 'הושג שוב' : 'הושג'} · ${esc(got)}</div>` : ''}${first ? `<div class="gotwhen re">הושג לראשונה ב־${esc(first)} · נבנה שוב מהמעידה</div>` : ''}<button class="srcbtn" data-act="link" data-url="${esc(h.url)}">מקור: ${esc(h.source)}</button>${h.status === 'now' ? `<div class="pb"><i style="width:${Math.round((h.pct || 0) * 100)}%"></i></div>` : ''}</div></div>`;
 }
 
 function badges() {
@@ -702,6 +725,7 @@ function journalToday(t, streak, moods) {
       <div style="display:flex;gap:10px;margin-top:14px"><input class="input" id="cnote" placeholder="מילה על היום (לא חובה)" value="${esc(today?.note || '')}"><button class="btn primary" data-act="checkin" style="height:48px;padding:0 18px">שמירה</button></div>
     </div>
     <button class="row" data-act="win"><div class="ib">${icon('wave', 19)}</div><div class="t">חשק עבר עכשיו<small>נגיעה אחת. אפשר לדייק אחר כך</small></div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>
+    <button class="row" data-act="open-slips"><div class="ib">${icon('slip', 19, 'var(--c-clay)')}</div><div class="t">מעידות<small>רישום, עריכה ומחיקה</small></div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>
     <div class="pk-sec" style="padding-top:8px"><div class="h2" style="font-size:15px">הישגים</div>${badgeRow(['waves', 'journal'])}</div>
     <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">השבוע שלך</div><div class="k" style="margin-top:8px">חשק בשבוע</div>${weekBars(t)}<p class="small" style="margin-top:6px">${wk.beaten} גלים עברו · ${moneyFig(wk.saved, 0)} נחסכו · ${wk.reached.length} תחנות בגוף</p><p class="small">${esc(wk.trend)}${tip ? ' ' + esc(tip.tip) : ''}</p><button class="btn text" data-act="go" data-go="week">כרטיס השבוע</button></div>
     <div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:15px">מצב רוח וחשק · 14 יום</div><div style="margin-top:8px">${chart}</div></div>
@@ -722,13 +746,59 @@ function moodChart() {
 }
 
 function journalHistory() {
+  const f = ui.histFilter || 'all';
+  const fmt = (t) => new Date(t).toLocaleString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
   const ev = [
-    ...st.checkins.map((c) => ({ t: c.t, icon: 'mood-' + (c.mood || 3), h: `צ׳ק-אין · חשק ${c.crave}/10`, n: c.note })),
-    ...st.cravings.filter((c) => c.won).map((c) => ({ t: c.t, icon: 'wave', h: `חשק עבר${c.intensity != null ? ` · ${c.intensity}/10` : ''}`, n: (c.triggers || []).map((id) => triggerById(id)?.label).filter(Boolean).join(', ') })),
-    ...st.slips.map((s) => ({ t: s.t, icon: 'slip', h: `רגע קשה${s.cigs ? ` · ${s.cigs}` : ''}${s.restart ? ' · ספירה חדשה' : ' · אותו תאריך'}`, n: s.note })),
-  ].sort((a, b) => b.t - a.t).slice(0, 60);
-  if (!ev.length) return `<p class="lead" style="margin-top:12px">עוד אין רשומות. חשק שנרשם חוזר כתובנה.</p>`;
-  return `<ul style="padding:0;margin:8px 0 0">${ev.map((x) => `<li class="hist"><span>${icon(x.icon, 22, 'var(--c-clay)')}</span><div><div>${esc(x.h)}</div>${x.n ? `<div class="small">${esc(x.n)}</div>` : ''}<div class="small">${esc(new Date(x.t).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}</div></div></li>`).join('')}</ul>`;
+    ...(f === 'all' || f === 'chk' ? st.checkins.map((c) => ({ t: c.t, icon: 'mood-' + (c.mood || 3), h: `צ׳ק-אין · חשק ${c.crave}/10`, n: c.note })) : []),
+    ...(f === 'all' || f === 'crav' ? st.cravings.filter((c) => c.won).map((c) => ({ t: c.t, icon: 'wave', h: `חשק עבר${c.intensity != null ? ` · ${c.intensity}/10` : ''}`, n: (c.triggers || []).map((id) => triggerById(id)?.label).filter(Boolean).join(', ') })) : []),
+    ...(f === 'all' || f === 'slip' ? st.slips.map((s) => ({
+      id: s.id, t: s.t, slip: true, icon: 'slip',
+      h: +s.cigs === 1 ? 'סיגריה אחת' : `${s.cigs} סיגריות`,
+      mode: s.restart ? 'ספירה חדשה' : 'ממשיכים לספור',
+      tr: (s.triggers || []).map((id) => triggerById(id)?.label).filter(Boolean),
+      n: s.note,
+      cost: (+s.cigs || 0) * ppcOf(st.settings),
+      min: (+s.cigs || 0) * (st.settings.mpc || 11),
+    })) : []),
+  ].sort((a, b) => b.t - a.t).slice(0, 80);
+  const chips = [['all', 'הכול'], ['slip', 'מעידות'], ['crav', 'חשקים'], ['chk', 'צ׳ק-אין']]
+    .map(([id, l]) => `<button data-act="hist-f" data-id="${id}" class="${f === id ? 'on' : ''}">${l}</button>`).join('');
+  let head = '';
+  if (f === 'slip') {
+    const q = st.settings.quitAt;
+    const t = now();
+    const sl = st.slips.filter((x) => !q || x.t >= q);
+    const cigs = sl.reduce((a, x) => a + (+x.cigs || 0), 0);
+    const nDays = q ? Math.max(1, Math.floor((t - q) / DAY) + 1) : 0;
+    const day0 = new Date(q || t);
+    day0.setHours(0, 0, 0, 0);
+    const dots = [];
+    for (let i = 0; i < Math.min(nDays, 14); i++) {
+      const d0 = day0.getTime() + (nDays > 14 ? nDays - 14 + i : i) * DAY;
+      const has = sl.some((x) => x.t >= d0 && x.t < d0 + DAY);
+      const d = new Date(d0);
+      dots.push(`<span class="dd ${has ? 'on' : ''}"><i></i><em>${d.getDate()}.${d.getMonth() + 1}</em></span>`);
+    }
+    const clean = nDays - new Set(sl.map((x) => new Date(x.t).toDateString())).size;
+    head = `<button class="slip-add" data-act="slip-add">${icon('plus', 18, 'var(--c-ink)')}<span>רישום מעידה</span></button>
+      <div class="sum slsum"><div class="eyebrow">מאז ההפסקה</div>
+      <div class="h2" style="font-size:16px;margin-top:6px">${Math.max(0, clean)} מתוך ${nDays} ימים בלי אף סיגריה</div>
+      <div class="ddrow">${dots.join('')}</div>
+      <div class="led"><div><div class="v">${sl.length}</div><div class="k">מעידות</div></div><div><div class="v">${cigs}</div><div class="k">סיגריות</div></div><div><div class="v">${moneyFig(cigs * ppcOf(st.settings), 2)}</div><div class="k">ירד מהחיסכון</div></div></div>
+      <div class="small" style="margin-top:10px">מעידה לא מוחקת ימים. היא עוזרת לראות מתי ולמה זה קורה.</div></div>`;
+  }
+  const list = ev.length
+    ? `<ul class="hl">${ev.map((x) => `<li class="hist${x.slip ? ' sl' : ''}"><span class="sx-ic">${icon(x.icon, 20, x.slip ? 'var(--c-clay)' : 'var(--c-hill)')}</span><div class="sx-b"><div class="sx-t">${esc(x.h)}${x.mode ? `<b class="tag ${x.mode === 'ספירה חדשה' ? '' : 'soft'}">${esc(x.mode)}</b>` : ''}</div>${x.tr?.length ? `<div class="sx-tr">${x.tr.map((l) => `<span>${esc(l)}</span>`).join('')}</div>` : ''}${x.n ? `<div class="small">${esc(x.n)}</div>` : ''}${x.slip ? `<div class="small">ירדו ${moneyFig(x.cost, 2)} ו־${nf(x.min, 0)} דקות</div>` : ''}<div class="sx-d">${esc(fmt(x.t))}</div></div>${x.slip ? `<div class="sx-tools"><button data-act="slip-edit" data-id="${esc(x.id)}">עריכה</button><button data-act="slip-ask-del" data-id="${esc(x.id)}" aria-label="מחיקה">${icon('trash', 16, 'var(--c-clay)')}</button></div>` : ''}</li>`).join('')}</ul>`
+    : `<p class="lead" style="margin-top:12px">עוד אין רשומות. חשק שנרשם חוזר כתובנה.</p>`;
+  let pat = '';
+  if (f === 'slip' && st.slips.length) {
+    const c = {};
+    for (const x of st.slips) for (const id of x.triggers || []) c[id] = (c[id] || 0) + 1;
+    const top = Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => triggerById(id)?.label).filter(Boolean);
+    const eve = st.slips.filter((x) => new Date(x.t).getHours() >= 18).length;
+    pat = `<div class="why sx-pat">${spot('journal', 34)}<div><div class="eyebrow" style="color:var(--c-hill)">מה חוזר במעידות</div><div style="font:400 14px/1.45 var(--f-text);margin-top:4px">${top.length ? `הכי הרבה סביב ${top.join(', ')}.` : ''} ${eve ? `${eve === 1 ? 'מעידה אחת' : `${eve} מעידות`} מתוך ${st.slips.length} ${eve === 1 ? 'הייתה' : 'היו'} בערב.` : ''}</div><div class="small" style="margin-top:4px">לפני ערב כזה, אפשר לפתוח תרגיל נשימה מראש.</div></div></div>`;
+  }
+  return `<div class="hfil">${chips}</div>${head}${list}${pat}`;
 }
 
 function settings() {
@@ -840,12 +910,26 @@ function week() {
 
 function slipDone() {
   const dark = theme() === 'dark';
-  const days = st.settings.quitAt ? Math.floor((now() - st.settings.quitAt) / DAY) : 0;
-  return `<div class="screen"><div style="height:280px">${scene(390, 320, dark, Math.min(8, Math.max(1, days)))}</div>
-    <div style="margin-top:-28px;background:var(--c-bg);border-radius:30px 30px 0 0;padding:28px var(--gutter) 24px;min-height:50%"><div class="eyebrow" style="color:var(--c-hill)">נשמר</div><div class="h-display" style="margin-top:8px">השביל לא נמחק</div>
-      <p class="lead" style="margin-top:10px">כל השעות בלי עישון עדיין קרו. מעידה היא נתון, לא מחיקה.</p>
-      <div class="led"><div><div class="v">${days}</div><div class="k">ימים ברצף הנוכחי</div></div><div><div class="v">${moneyFig(moneyAt(st, now()), 0)}</div><div class="k">נחסכו ברצף</div></div><div><div class="v">${Object.keys(st.unlocked).length}</div><div class="k">הישגים נשמרו</div></div></div>
-      <button class="btn primary" data-act="go" data-go="home" style="width:100%;margin-top:18px">חזרה להיום</button>
+  const t = now();
+  const q = st.settings.quitAt;
+  const days = q ? Math.floor((t - q) / DAY) : 0;
+  const last = st.slips.at(-1) || { cigs: 1, triggers: [], restart: false };
+  const per = ppcOf(st.settings);
+  const mins = (+last.cigs || 0) * (st.settings.mpc || 11);
+  const trig = (last.triggers || []).map(triggerById).filter(Boolean)[0];
+  const row = (k, v) => `<div class="dl"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const kept = !last.restart;
+  return `<div class="screen sd"><div class="sd-art">${scene(390, 320, dark, Math.min(8, Math.max(1, days)))}</div>
+    <div class="sd-body"><div class="eyebrow" style="color:var(--c-hill)">נרשם</div><div class="h-display" style="margin-top:6px">השביל לא נמחק</div>
+      <p class="lead" style="margin-top:8px">${kept ? `${days} ימים מאז ההפסקה נשארים. מעידה היא נתון, לא מחיקה.` : 'ספירה חדשה מהמעידה. הרצף הקודם נשמר, וההישגים נשארו.'}</p>
+      <div class="dlist">
+        ${row('ירד מהחיסכון', moneyFig((+last.cigs || 0) * per, 2))}
+        ${row('ירד מהזמן שחזר', `${nf(mins, 0)} דקות`)}
+        ${row(kept ? 'שלבי 72 השעות הראשונות' : 'כל שלבי הגוף', kept ? 'מתחילים מחדש' : 'מתחילים מאפס')}
+      </div>
+      ${kept ? `<div class="kept">${icon('check', 15, 'var(--c-hill)', 2)}<span>נשארו כמו שהיו: ${days} ימים, ${Object.keys(st.unlocked).length} הישגים, והשלבים הארוכים בגוף.</span></div>` : ''}
+      ${trig ? `<div class="why sd-tip">${icon('drop', 20, 'var(--c-clay)')}<div><div class="eyebrow" style="color:var(--c-clay)">לפעם הבאה · ${esc(trig.label)}</div><div class="small" style="margin-top:3px">${esc(trig.tip)}</div></div></div>` : ''}
+      <button class="btn primary" data-act="go" data-go="home" style="width:100%;margin-top:16px">חזרה להיום</button>
       <button class="btn ghost" data-act="sos" style="width:100%;margin-top:10px">${spot('breath', 22)}לנשום עכשיו</button>
     </div></div>`;
 }
@@ -917,6 +1001,7 @@ function startWelcomeTease() {
 }
 function overlay() {
   if (ui.overlay === 'slip') return slipSheet();
+  if (ui.overlay === 'slipdel') return slipDeleteSheet();
   if (ui.overlay === 'insight') return insightSheet();
   if (ui.overlay === 'checkin') return checkinSheet();
   if (ui.overlay === 'about') return aboutSheet();
@@ -928,15 +1013,32 @@ function overlay() {
 
 function slipSheet() {
   const chips = TRIGGERS.map((t) => `<button data-act="slip-trig" data-id="${t.id}" class="${ui.slipTriggers.includes(t.id) ? 'on' : ''}">${t.label}</button>`).join('');
+  const per = ppcOf(st.settings);
+  const n = ui.slipCigs;
+  const mins = n * (st.settings.mpc || 11);
+  const keep = ui.slipMode !== 'restart';
+  const editing = !!ui.slipEditId;
+  return `<div class="dim" data-act="overlay-off"></div><div class="panel slp"><div class="grab"></div>
+    <div class="slp-hd">${spot('slip', 44)}<div><div class="h1">${editing ? 'עריכת מעידה' : 'רישום מעידה'}</div><p class="lead">${esc(g('אתה עדיין בדרך', 'את עדיין בדרך', 'עדיין בדרך'))}. רושמים, וממשיכים מכאן.</p></div></div>
+    <div class="slp-two">
+      <div class="field"><label>כמה סיגריות?</label><div class="stepper sm"><button class="iconbtn" data-act="slip-n" data-d="-1" aria-label="אחת פחות">${icon('minus', 15)}</button><div class="n">${n}</div><button class="iconbtn" data-act="slip-n" data-d="1" aria-label="עוד אחת">${icon('plus', 15)}</button></div></div>
+      <div class="field"><label for="slip-when">מתי?</label>${dateFieldHtml('slip-when', ui.slipWhen)}</div>
+    </div>
+    <div class="field"><label>מה היה סביב זה? (לא חובה)</label><div class="chips">${chips}</div></div>
+    <div class="field"><label for="slipnote">מילה לעצמך (לא חובה)</label><div class="input"><input id="slipnote" value="${esc(ui.slipNote || '')}" placeholder="למשל: בחתונה, עם חברים"></div></div>
+    <div class="field" style="margin-bottom:0"><label>ומה עם הספירה?</label></div>
+    <button class="choice ${keep ? 'on' : ''}" data-act="slip-mode" data-mode="keep"><div class="radio"></div><div><div class="h2" style="font-size:15px">ממשיכים לספור <b class="tag soft">מומלץ</b></div><div class="small">הימים וההישגים נשארים. שלבי הגוף של 72 השעות הראשונות מתחילים מחדש.</div></div></button>
+    <button class="choice ${!keep ? 'on' : ''}" data-act="slip-mode" data-mode="restart"><div class="radio"></div><div><div class="h2" style="font-size:15px">ספירה חדשה מהמעידה</div><div class="small">מתחילים מאפס. הרצף הקודם נשמר כשיא, וההישגים נשארים.</div></div></button>
+    <div class="slp-off">${icon('money', 16, 'var(--c-ink-2)')}<span>יירדו מהחיסכון <b>${moneyFig(n * per, 2)}</b>, ומהזמן שחזר <b>${nf(mins, 0)} דקות</b>.</span></div>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="btn ghost" data-act="overlay-off" style="flex:.6">ביטול</button><button class="btn primary" data-act="slip-save" style="flex:1">${editing ? 'שמירת השינוי' : 'שמירה'}</button></div>
+  </div>`;
+}
+
+function slipDeleteSheet() {
   return `<div class="dim" data-act="overlay-off"></div><div class="panel"><div class="grab"></div>
-    <div style="display:flex;gap:12px;align-items:center">${spot('slip', 48)}<div class="h1">רגע קשה. זה קורה.</div></div>
-    <p class="lead" style="margin-top:8px">${esc(g('אתה עדיין בדרך', 'את עדיין בדרך', 'עדיין בדרך'))}. מעידה היא נתון, לא כישלון.</p>
-    <div class="field"><label>כמה סיגריות?</label><div class="stepper"><button class="iconbtn" data-act="slip-n" data-d="-1">${icon('minus', 16)}</button><div class="n">${ui.slipCigs}</div><button class="iconbtn" data-act="slip-n" data-d="1">${icon('plus', 16)}</button></div></div>
-    <div class="field"><label>מה היה סביב זה?</label><div class="chips">${chips}</div></div>
-    <div class="field"><label>מילה (לא חובה)</label><div class="input"><input id="slipnote" value="${esc(ui.slipNote || '')}"></div></div>
-    <button class="choice ${ui.slipMode === 'keep' ? 'on' : ''}" data-act="slip-mode" data-mode="keep" style="margin-top:12px"><div class="radio"></div><div><div class="h2" style="font-size:15px">ממשיכים מאותו תאריך</div><div class="small">הסיגריות יורדות מהספירה. המונה ממשיך.</div></div></button>
-    <button class="choice ${ui.slipMode === 'restart' ? 'on' : ''}" data-act="slip-mode" data-mode="restart" style="margin-top:8px"><div class="radio"></div><div><div class="h2" style="font-size:15px">מתחילים ספירה חדשה</div><div class="small">הרצף הקודם נשמר כשיא, יחד עם ההישגים.</div></div></button>
-    <div style="display:flex;gap:10px;margin-top:16px"><button class="btn ghost" data-act="overlay-off" style="flex:.6">ביטול</button><button class="btn primary" data-act="slip-save" style="flex:1">שמירה</button></div>
+    <div class="h1">למחוק את המעידה?</div>
+    <p class="lead" style="margin-top:8px">הספירה, הכסף והשלבים בגוף יחושבו מחדש בלי הרשומה הזו.</p>
+    <div style="display:flex;gap:10px;margin-top:16px"><button class="btn ghost" data-act="overlay-off" style="flex:.6">ביטול</button><button class="btn danger" data-act="slip-del-yes" style="flex:1">למחוק</button></div>
   </div>`;
 }
 

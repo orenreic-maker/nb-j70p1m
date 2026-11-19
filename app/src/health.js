@@ -97,6 +97,37 @@ export function withState(elapsed) {
   return items;
 }
 
+/** Steps up to 72 hours describe nicotine and carbon monoxide leaving the body, so a slip restarts them. */
+export const RESTARTS = new Set(HEALTH.filter((h) => h.at <= 72 * HOUR).map((h) => h.id));
+
+export function withSlips(sinceQuit, sinceSmoke) {
+  const items = HEALTH.map((h) => ({ ...h, cont: RESTARTS.has(h.id) }));
+  for (const cont of [true, false]) {
+    const e = cont ? sinceSmoke : sinceQuit;
+    let nextAt = null;
+    let prev = 0;
+    for (const h of items.filter((x) => x.cont === cont)) {
+      if (e >= h.at) {
+        h.status = 'done';
+        h.pct = 1;
+        prev = h.at;
+        h.e = e;
+      } else if (nextAt === null || h.at === nextAt) {
+        h.status = 'now';
+        nextAt = h.at;
+        h.pct = h.at > prev ? Math.max(0, Math.min(1, (e - prev) / (h.at - prev))) : 0;
+        h.e = e;
+      } else {
+        h.status = 'next';
+        h.pct = 0;
+        h.e = e;
+      }
+      if (cont && h.status !== 'done' && sinceQuit >= h.at && sinceQuit !== sinceSmoke) h.again = true;
+    }
+  }
+  return items;
+}
+
 export function healthSummary(elapsed) {
   const items = withState(elapsed);
   const done = items.filter((i) => i.status === 'done');

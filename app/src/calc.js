@@ -229,3 +229,16 @@ export function esc(s) {
 export function uid() {
   return Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
 }
+
+/** Slips in the current count that did not start a new count. */
+export function keepSlips(st) {
+  const q = st.settings?.quitAt;
+  if (q == null) return [];
+  return (st.slips || []).filter((s) => !s.restart && s.t > q).sort((a, b) => a.t - b.t);
+}
+
+/** Last moment smoke entered the body: the quit date, or the latest kept slip. */
+export function lastSmokeAt(st) {
+  const kept = keepSlips(st);
+  return kept.length ? kept[kept.length - 1].t : st.settings?.quitAt;
+}

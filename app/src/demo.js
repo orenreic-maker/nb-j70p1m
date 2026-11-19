@@ -43,6 +43,9 @@ export function demoState() {
       triggers: [trigs[i]], note: '',
     });
   }
+  const at = (d, h, m) => new Date(2026, 10, d, h, m, 0).getTime();
+  st.slips.push({ id: 's1', t: at(16, 21, 40), cigs: 2, note: 'בחתונה של יעל', triggers: ['alcohol', 'social'], intensity: null, restart: false });
+  st.slips.push({ id: 's2', t: at(18, 8, 30), cigs: 1, note: '', triggers: ['coffee'], intensity: null, restart: false });
   st.healthUnlocked = {};
   return st;
 }
