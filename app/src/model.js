@@ -1,4 +1,5 @@
 import { PACK_EST, RYO_EST, ppcOf, uid } from './calc.js';
+import { PRESETS } from './breath.js';
 
 export function blank() {
   return {
@@ -36,7 +37,9 @@ export function blank() {
       investRate: 0.07,
       seenStage: '',
       adsRemoved: false,
+      breathId: 'calm478',
     },
+    breaths: [],
     cravings: [],
     checkins: [],
     slips: [],
@@ -101,6 +104,9 @@ export function migrate(raw) {
   s.investRate = Math.min(0.1, Math.max(0.03, Number.isFinite(+s.investRate) ? +s.investRate : 0.07));
   s.seenStage = typeof s.seenStage === 'string' ? s.seenStage : '';
   s.adsRemoved = !!s.adsRemoved;
+  const breaths = arr(raw.breaths).map(cleanBreath).filter(Boolean).slice(0, 10);
+  const known = new Set([...PRESETS.map((p) => p.id), ...breaths.map((b) => b.id)]);
+  s.breathId = known.has(s.breathId) ? s.breathId : 'calm478';
   s.checkinHour = Number.isFinite(+s.checkinHour) ? Math.min(23, Math.max(0, Math.round(+s.checkinHour))) : 21;
   return {
     ...base,
@@ -109,6 +115,7 @@ export function migrate(raw) {
     onboarded: !!(raw.onboarded || s.quitAt),
     seenJournalWhy: !!raw.seenJournalWhy,
     settings: s,
+    breaths,
     cravings: arr(raw.cravings),
     checkins: arr(raw.checkins),
     slips: arr(raw.slips).map((s) => ({
@@ -128,6 +135,19 @@ export function migrate(raw) {
     shuf: Number.isFinite(+raw.shuf) ? +raw.shuf : 0,
     freezeNow: undefined,
   };
+}
+
+function cleanBreath(b) {
+  if (!b || typeof b !== 'object') return null;
+  const phases = arr(b.phases).map((p) => {
+    const k = ['in', 'hold', 'out', 'empty'].includes(p?.k) ? p.k : null;
+    const s = Math.round(+p?.s);
+    if (!k || !Number.isFinite(s)) return null;
+    return { k, s: Math.max(1, Math.min(20, s)) };
+  }).filter(Boolean).slice(0, 8);
+  if (!phases.length) return null;
+  const name = String(b.name || '').trim().slice(0, 24);
+  return { id: String(b.id || uid()), name: name || 'תרגיל', phases };
 }
 
 function originQuit(st) {
