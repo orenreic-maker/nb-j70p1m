@@ -198,7 +198,7 @@ function whyStep() {
     <label class="ob-lbl" for="obwhy">הסיבה שלי</label>
     <div class="input tall ${checkText(ui.why || '', 'reason') ? 'bad' : ''}"><textarea id="obwhy" placeholder="למשל: לנשום בקלות, להיות שם בשביל הילדים">${esc(ui.why || '')}</textarea></div>
     ${fieldError('reason')}
-    <button type="button" class="ob-photo" data-act="ob-photo">${spot('heart')}<span class="tx"><b>תמונה שמחזקת</b><small>תופיע במסך הנשימה</small></span><span class="cam">${icon('camera', 18)}${st.settings.photo ? '<i class="got"></i>' : ''}</span></button>
+    <button type="button" class="ob-photo" data-act="ob-photo">${spot('heart')}<span class="copy"><b>תמונה שמחזקת</b><small>תופיע במסך הנשימה</small></span><span class="cam">${icon('camera', 18)}${st.settings.photo ? '<i class="got"></i>' : ''}</span></button>
     <input id="obphoto" type="file" accept="image/*" hidden>
     <div class="ob-lbl">ועל מה חוסכים?</div>
     <div class="ob-goal">
