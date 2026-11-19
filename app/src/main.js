@@ -29,10 +29,10 @@ function toast(m) {
   toastTimer = setTimeout(() => { ui.toast = ''; render(); }, 2800);
 }
 
-async function persist() {
+async function persist(opts = {}) {
   bump();
   if (canPersist()) await save();
-  render();
+  if (opts.paint !== false) render();
   scheduleNotes();
   syncBanner(st, ui.route, now());
 }
@@ -519,12 +519,21 @@ const actions = {
     persist().then(() => { toast(`נשמר. רצף של ${st.checkins.length ? '' : ''}${document.querySelector('.small') ? '' : ''}`); showUnlock(); });
   },
   'why-ok'() { st.seenJournalWhy = true; persist(); },
-  theme(el) { st.settings.theme = el.dataset.theme; applyStatusBar(theme()); persist(); },
+  theme(el) {
+    st.settings.theme = el.dataset.theme;
+    applyStatusBar(theme());
+    el.parentElement?.querySelectorAll('[data-act="theme"]').forEach((b) => b.classList.toggle('on', b === el));
+    persist();
+  },
   toggle(el) {
     const k = el.dataset.key;
     st.settings[k] = !st.settings[k];
+    el.querySelector('.tg')?.classList.toggle('on', !!st.settings[k]);
+    if (k === 'celebrate') {
+      document.documentElement.classList.toggle('reduce', !st.settings.celebrate || matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
     if (st.settings.haptics && k === 'haptics') haptic('light');
-    persist();
+    persist({ paint: false });
   },
   async set(el) {
     const k = el.dataset.set;
@@ -583,7 +592,11 @@ const actions = {
     else toast('חשבון החנות עוד לא מחובר. אפשר לנסות שוב אחרי החיבור.');
   },
   shape(el) { ui.shareShape = el.dataset.shape; render(); paintCard(); },
-  sharetoggle(el) { ui[el.dataset.key] = !ui[el.dataset.key]; render(); paintCard(); },
+  sharetoggle(el) {
+    ui[el.dataset.key] = !ui[el.dataset.key];
+    el.querySelector('.tg')?.classList.toggle('on', !!ui[el.dataset.key]);
+    paintCard();
+  },
   'share-go'() { shareCanvas(); },
   'week-share'() {
     const w = weekStats(st, now());

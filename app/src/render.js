@@ -72,6 +72,10 @@ let introFrame = 0;
 
 export function render() {
   cancelAnimationFrame(introFrame);
+  const app = $app();
+  const sameRoute = lastRoute === ui.route;
+  const prev = app.querySelector('[data-scroll]') || app.querySelector('.screen');
+  const kept = sameRoute && prev ? prev.scrollTop : 0;
   const dark = theme() === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
@@ -80,9 +84,12 @@ export function render() {
   document.documentElement.classList.toggle('reduce', !st.settings?.celebrate || matchMedia('(prefers-reduced-motion: reduce)').matches);
   const enterHealth = ui.route === 'health' && lastRoute !== 'health';
   lastRoute = ui.route;
-  $app().innerHTML = view();
-  const sc = $app().querySelector('[data-scroll]');
-  if (sc && ui.scroll) sc.scrollTop = ui.scroll;
+  app.innerHTML = view();
+  const sc = app.querySelector('[data-scroll]') || app.querySelector('.screen');
+  if (sc) {
+    const top = sameRoute ? kept : (ui.scroll || 0);
+    if (top) sc.scrollTop = top;
+  }
   if (ui.route === 'home' || ui.route === 'pocket') {
     for (const el of document.querySelectorAll('[data-roll]')) rollInto(el, el.textContent);
   }
