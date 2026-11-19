@@ -1,5 +1,5 @@
 import { icon } from './icons.js';
-import { BREATH } from './breath.js';
+import { BREATH, KINDS, KIND_ORDER, LIMITS, PRESETS, currentBreath, cycleOf, longHolds, patternText, problems, toRunner } from './breath.js';
 import { mark, scene, wordmark, WORDMARK } from './scene.js';
 import { livingScene, stageFor } from './living.js';
 import { hasSpot, spot, tabIcon } from './art.js';
@@ -103,6 +103,7 @@ export function render() {
   if (ui.route === 'onboard' && ui.obStep === 0) startWelcomeTease();
   else stopWelcomeTease();
   if (ui.route === 'onboard') bindOnboard();
+  if (ui.route === 'breathedit') bindPhaseDrag();
 }
 
 /** Vertical digit strip. The shekel mark is never inside this node. */
@@ -260,7 +261,7 @@ function runHealthIntro() {
 function view() {
   switch (ui.route) {
     case 'onboard': return `${onboard()}${toast()}`;
-    case 'sos': return sos();
+    case 'sos': return `${sos()}${overlay()}${toast()}`;
     case 'health': return screen(health(), 'health');
     case 'badges': return screen(badges(), 'pocket');
     case 'pocket': return screen(pocket(), 'pocket');
@@ -270,6 +271,7 @@ function view() {
     case 'share': return share();
     case 'week': return week();
     case 'slipdone': return slipDone();
+    case 'breathedit': return `${breathEditor()}${breathMenu()}${breathDelete()}${toast()}`;
     default: return screen(home(), 'home');
   }
 }
@@ -532,10 +534,10 @@ function sos() {
   const top = dark ? '#1A2420' : '#DDE6DE';
   const on = dark ? '#151B17' : '#2F3A2B';
   const cols = dark ? ['#8FA88A', '#8FA88A', '#A9C2A1'] : ['#94A88C', '#94A88C', '#6E8768'];
-  const mode = ui.breathMode;
-  const phases = mode === 'box'
-    ? [['שאיפה', '4'], ['החזקה', '4'], ['נשיפה', '4'], ['החזקה', '4']]
-    : [['שאיפה', '4'], ['החזקה', '7'], ['נשיפה', '8']];
+  const ex = currentBreath(st);
+  const run = toRunner(ex);
+  const sp = ui.shotPhase || { i: 0, left: run[0]?.[1] || 4, clock: '10:00' };
+  const scale = run[sp.i]?.[2] ?? 1;
   const reason = (st.settings.reasons || [])[0];
   const photo = st.settings.photo
     ? `<div class="ph"><img alt="" src="${st.settings.photo}"></div>`
@@ -543,15 +545,12 @@ function sos() {
   return `<div class="sos-screen screen" style="--sos-top:${top};--sos-on:${on}">
     <div class="topbar"><div><div class="h1">${esc(g('אתה חזק מהגל הזה', 'את חזקה מהגל הזה', 'הגל הזה יעבור'))}</div><p class="lead" style="margin-top:6px">${esc(g('מוכן?', 'מוכנה?', 'מתחילים?'))} עוקבים אחרי הצורה. כשהיא גדלה — שואפים.</p></div>
       <button class="iconbtn" data-act="sos-close" aria-label="סגירה">${icon('close', 16)}</button></div>
-    <div class="wrap" style="margin-top:14px"><div class="seg" role="tablist">
-      <button data-act="breath" data-mode="478" class="${mode === '478' ? 'on' : ''}">4-7-8 מרגיעה</button>
-      <button data-act="breath" data-mode="box" class="${mode === 'box' ? 'on' : ''}">קופסה 4-4-4-4</button>
-    </div></div>
-    <div class="stage" aria-hidden="true"><svg viewBox="0 0 340 340"><g class="blobs"><path d="${BREATH.b1}" fill="${cols[0]}" opacity=".22"/><path d="${BREATH.b2}" fill="${cols[1]}" opacity=".45"/><path d="${BREATH.b3}" fill="${cols[2]}"/></g></svg>
-      <div class="mid"><div class="ph" data-live="phase">שאיפה</div><div class="c" data-live="phaseleft">עוד 4 שניות</div></div></div>
-    <div class="stp">${phases.map(([n, s], i) => `<span data-phase="${i}" class="${i === 0 ? 'on' : ''}">${n} · ${s}</span>`).join('')}</div>
-    <div class="wrap"><div class="timer" style="margin-top:12px"><div style="display:flex;justify-content:space-between"><div class="num-ltr" data-live="sosclock" style="font:500 30px/1 var(--f-text)">10:00</div><div class="small">דקות שנשארו לגל</div></div>
-      <svg width="100%" height="28" viewBox="0 0 334 28" style="margin-top:6px"><polyline points="${BREATH.wave}" fill="none" stroke="var(--c-line)" stroke-width="2"/><polyline data-live="wave" points="${BREATH.wave}" fill="none" stroke="var(--c-clay)" stroke-width="2.4" stroke-dasharray="0 2000"/></svg></div>
+    <div class="wrap" style="margin-top:14px"><button class="bx-chip" data-act="breaths">${icon('breath', 18, 'var(--c-hill)')}<span class="n">${esc(ex.name)}</span><span class="p">${patternText(ex)}</span><span class="ch">החלפה</span></button></div>
+    <div class="stage" aria-hidden="true"><svg viewBox="0 0 340 340"><g class="blobs" style="transform:scale(${scale})"><path d="${BREATH.b1}" fill="${cols[0]}" opacity=".22"/><path d="${BREATH.b2}" fill="${cols[1]}" opacity=".45"/><path d="${BREATH.b3}" fill="${cols[2]}"/></g></svg>
+      <div class="mid"><div class="ph" data-live="phase">${esc(run[sp.i]?.[0] || 'שאיפה')}</div><div class="c" data-live="phaseleft">${sp.left === 1 ? 'עוד שנייה' : `עוד ${sp.left} שניות`}</div></div></div>
+    <div class="stp">${run.map(([n, s], i) => `<span data-phase="${i}" class="${i === sp.i ? 'on' : ''}">${n} · ${s}</span>`).join('')}</div>
+    <div class="wrap"><div class="timer" style="margin-top:12px"><div style="display:flex;justify-content:space-between"><div class="num-ltr" data-live="sosclock" style="font:500 30px/1 var(--f-text)">${esc(sp.clock)}</div><div class="small">דקות שנשארו לגל</div></div>
+      <svg class="sos-wave" width="100%" height="28" viewBox="0 0 334 28"><polyline points="${BREATH.wave}" fill="none" stroke="var(--c-line)" stroke-width="2"/><polyline data-live="wave" points="${BREATH.wave}" fill="none" stroke="var(--c-clay)" stroke-width="2.4" stroke-dasharray="${ui.shotPhase ? Math.round((1 - ((+sp.clock.split(':')[0] * 60) + +sp.clock.split(':')[1]) / 600) * 334) : 0} 2000"/></svg></div>
       ${reason ? `<div class="why">${photo}<div><div class="eyebrow" style="color:var(--c-clay)">הסיבה שלי</div><div style="font:400 14.5px/1.4 var(--f-text);margin-top:3px">${esc(reason)}</div></div></div>` : ''}
       <div class="why">${icon('drop', 22, 'var(--c-clay)')}<div class="small" data-live="tip">${esc(TIPS[0])}</div></div>
     </div>
@@ -829,6 +828,7 @@ function settings() {
           ${srow('כמה זה עלה', s.mode === 'pack' ? 'מחיר הקופסה' : 'מחיר הטבק, הניירות והפילטרים', cost, 'cost')}
           ${srow('יעד חיסכון', 'על מה חוסכים, ובכמה', goal, 'goal')}
           ${srow('הסיבות שלי', 'מוצגות ברגע קשה, עם התמונה', why, 'why')}
+          ${srow('תרגיל הנשימה', 'נפתח בכל נושמים יחד', currentBreath(st).name, 'breaths')}
         </div>
       </section>
       <section class="set-group">${setHead('bell', 'תזכורות')}
@@ -1000,6 +1000,7 @@ function startWelcomeTease() {
   teaseFrame = requestAnimationFrame(run);
 }
 function overlay() {
+  if (ui.overlay === 'breaths') return breathSheet();
   if (ui.overlay === 'slip') return slipSheet();
   if (ui.overlay === 'slipdel') return slipDeleteSheet();
   if (ui.overlay === 'insight') return insightSheet();
@@ -1185,6 +1186,122 @@ function maybeCoin(money) {
     }
   }
   coinWhole = whole;
+}
+
+const KCOL = { in: 'var(--c-hill)', hold: 'var(--c-apricot)', out: 'var(--c-sage)', empty: 'var(--c-clay)' };
+
+function cycleBar(ex, labels = false) {
+  const segs = (ex.phases || []).map((p, i) => `<i data-seg="${i}" style="flex:${p.s};background:${KCOL[p.k]}">${labels ? `<em>${p.s}</em>` : ''}</i>`).join('');
+  return `<span class="bx-bar${labels ? ' big' : ''}">${segs}</span>`;
+}
+
+function breathRow(ex, mine) {
+  const on = (st.settings.breathId || 'calm478') === ex.id;
+  return `<div class="bx-row ${on ? 'on' : ''}"><button class="bx-pick" data-act="breath-pick" data-id="${esc(ex.id)}"><span class="radio"></span><span class="bx-tx"><span class="t">${esc(ex.name)}</span><span class="d">${esc(ex.note || `${ex.phases.length} שלבים · ${patternText(ex)}`)}</span>${cycleBar(ex)}</span><span class="bx-len"><b>${cycleOf(ex)}</b><small>שניות</small></span></button>
+    <button class="bx-side" data-act="breath-edit" data-id="${esc(ex.id)}" data-copy="${mine ? '0' : '1'}" aria-label="${mine ? 'עריכה' : 'עותק לעריכה'}">${icon(mine ? 'pen' : 'plus', 16, 'var(--c-ink-2)')}</button></div>`;
+}
+
+function breathSheet() {
+  const mine = st.breaths || [];
+  const full = mine.length >= LIMITS.mine;
+  return `<div class="dim" data-act="overlay-off"></div><div class="panel bx-sheet"><div class="grab"></div>
+    <div class="h1">איזה תרגיל?</div>
+    <p class="lead" style="margin-top:4px">התרגיל שנבחר ייפתח מעכשיו בכל ״נושמים יחד״.</p>
+    <div class="bx-h">התרגילים שלי</div>
+    ${mine.map((e) => breathRow(e, true)).join('') || '<p class="small">עוד אין תרגיל משלך.</p>'}
+    <button class="bx-new" data-act="breath-new" ${full ? 'disabled' : ''}>${icon('plus', 18, 'var(--c-hill)')}תרגיל חדש</button>
+    <div class="bx-h">מוכנים</div>
+    ${PRESETS.map((e) => breathRow(e, false)).join('')}
+    <p class="small" style="margin-top:12px">בסימן + אפשר לקחת תרגיל מוכן ולשנות אותו לפי הקצב שלך.</p>
+  </div>`;
+}
+
+function breathEditor() {
+  const ex = ui.breathEdit || { id: '', name: '', phases: [] };
+  const total = cycleOf(ex);
+  const perMin = total ? 60 / total : 0;
+  const bad = problems(ex);
+  const full = ex.phases.length >= LIMITS.phases;
+  const rows = ex.phases.map((p, i) => `<li class="bx-ph" data-i="${i}">
+      <span class="grip" data-i="${i}" aria-hidden="true"><i></i><i></i><i></i></span>
+      <button class="mv" data-act="ph-move" data-i="${i}" data-d="-1" aria-label="הזזה למעלה" ${i === 0 ? 'disabled' : ''}></button>
+      <button class="mv" data-act="ph-move" data-i="${i}" data-d="1" aria-label="הזזה למטה" ${i === ex.phases.length - 1 ? 'disabled' : ''}></button>
+      <span class="dot" style="background:${KCOL[p.k]}"></span>
+      <button class="kind" data-act="ph-kind" data-i="${i}">${KINDS[p.k].label}${icon('chev-down', 12, 'var(--c-ink-2)')}</button>
+      <span class="st"><button class="iconbtn" data-act="ph-s" data-i="${i}" data-d="-1" aria-label="פחות" ${p.s <= LIMITS.min ? 'disabled' : ''}>${icon('minus', 14)}</button><b>${p.s}</b><button class="iconbtn" data-act="ph-s" data-i="${i}" data-d="1" aria-label="יותר" ${p.s >= LIMITS.max ? 'disabled' : ''}>${icon('plus', 14)}</button><small>שנ׳</small></span>
+      <button class="rm" data-act="ph-rm" data-i="${i}" aria-label="הסרת השלב">${icon('close', 14, 'var(--c-ink-3)')}</button>
+    </li>`).join('');
+  return `<div class="screen bx-ed-screen" data-scroll><div class="appbar"><div style="display:flex;align-items:center;gap:10px"><button class="iconbtn" data-act="breath-back" aria-label="חזרה">${icon('chevron', 16, 'currentColor', 1.7)}</button><div class="ttl">${ex.id ? 'עריכת תרגיל' : 'תרגיל חדש'}</div></div></div>
+    <div class="pad">
+      <div class="field" style="margin-top:4px"><label for="bx-name">שם התרגיל</label><div class="input"><input id="bx-name" value="${esc(ex.name)}" maxlength="${LIMITS.name}"></div></div>
+      <div class="bx-prev">
+        <div class="bx-prev-hd"><span class="eyebrow">מחזור אחד</span><span class="bx-tot"><b>${total}</b> שניות · ${perMin >= 1 ? `בערך ${nf(perMin, 0)} נשימות בדקה` : 'פחות מנשימה בדקה'}</span></div>
+        ${cycleBar(ex, true)}
+        <p class="bx-try-line" data-try hidden></p>
+        <div class="bx-leg">${[...new Set(ex.phases.map((p) => p.k))].map((k) => `<span><i style="background:${KCOL[k]}"></i>${KINDS[k].label}</span>`).join('')}</div>
+        <button class="btn ghost bx-try" data-act="breath-try">${spot('breath', 22)}לנסות מחזור אחד</button>
+      </div>
+      <div class="bx-h" style="margin-top:18px">השלבים, לפי הסדר <span class="small">${ex.phases.length} מתוך ${LIMITS.phases}</span></div>
+      <ol class="bx-list">${rows}</ol>
+      <button class="bx-new" data-act="ph-menu" ${full ? 'disabled' : ''}>${icon('plus', 18, 'var(--c-hill)')}הוספת שלב</button>
+      ${longHolds(ex) ? `<div class="why bx-safe">${icon('info', 20, 'var(--c-clay)')}<div class="small">החזקה ארוכה יכולה לגרום לסחרחורת. אם זה קורה, חוזרים לנשימה רגילה. בהריון, או עם מחלת לב או ריאה, כדאי להתייעץ עם רופא לפני החזקות ארוכות.</div></div>` : ''}
+      ${bad.length ? `<p class="small bx-bad">${bad[0]}.</p>` : ''}
+      <button class="btn primary${bad.length ? ' dis' : ''}" data-act="breath-save" style="width:100%;margin-top:16px">שמירה ובחירה לנשימה</button>
+      ${ex.id && (st.breaths || []).some((b) => b.id === ex.id) ? `<button class="btn text bx-del" data-act="breath-del">מחיקת התרגיל</button>` : ''}
+    </div></div>`;
+}
+
+function breathMenu() {
+  if (!ui.breathMenu) return '';
+  return `<div class="dim" data-act="menu-off"></div><div class="panel bx-menu"><div class="grab"></div><div class="h2" style="font-size:17px">איזה שלב להוסיף?</div>
+      ${KIND_ORDER.map((k) => `<button class="bx-kind" data-act="ph-add" data-k="${k}"><span class="dot" style="background:${KCOL[k]}"></span><span><b>${KINDS[k].label}</b><small>${KINDS[k].hint}</small></span><em>4 שנ׳</em></button>`).join('')}
+      <p class="small" style="margin-top:10px">השלב החדש נוסף בסוף. אפשר לגרור אותו למקום אחר.</p></div>`;
+}
+
+function breathDelete() {
+  if (ui.overlay !== 'breathdel') return '';
+  return `<div class="dim" data-act="menu-off"></div><div class="panel"><div class="grab"></div>
+    <div class="h1">למחוק את התרגיל?</div>
+    <p class="lead" style="margin-top:8px">הוא יימחק מהמכשיר. אם זה התרגיל שנבחר, נושמים יחד יחזור אל 4-7-8.</p>
+    <div style="display:flex;gap:10px;margin-top:16px"><button class="btn ghost" data-act="menu-off" style="flex:.6">ביטול</button><button class="btn danger" data-act="breath-del-yes" style="flex:1">למחוק</button></div>
+  </div>`;
+}
+
+function bindPhaseDrag() {
+  const list = document.querySelector('.bx-list');
+  if (!list || list.dataset.bound) return;
+  list.dataset.bound = '1';
+  list.querySelectorAll('.grip').forEach((grip) => {
+    grip.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      const from = +grip.dataset.i;
+      const startY = e.clientY;
+      let moved = false;
+      const move = (ev) => {
+        if (Math.abs(ev.clientY - startY) > 12) moved = true;
+        const row = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.bx-ph');
+        list.querySelectorAll('.bx-ph').forEach((el) => el.classList.toggle('drag-over', el === row));
+      };
+      const up = (ev) => {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', up);
+        grip.removeEventListener('pointercancel', up);
+        if (!moved || !ui.breathEdit) return;
+        const row = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.bx-ph');
+        const to = row ? +row.dataset.i : from;
+        if (to === from || !Number.isFinite(to)) return;
+        const phases = ui.breathEdit.phases;
+        const [item] = phases.splice(from, 1);
+        phases.splice(to, 0, item);
+        const name = document.getElementById('bx-name');
+        if (name) ui.breathEdit.name = name.value.slice(0, LIMITS.name);
+        render();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', up);
+      grip.addEventListener('pointercancel', up);
+    });
+  });
 }
 
 export { MESSAGES };

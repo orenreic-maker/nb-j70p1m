@@ -13,3 +13,57 @@ export function phaseAt(P, s) {
   while (r >= P[i][1]) { r -= P[i][1]; i += 1; }
   return { i, left: P[i][1] - r, step: Math.floor(s / cycle) * P.length + i };
 }
+
+/** Phase kinds. The blob grows on an inhale, shrinks on an exhale, and rests on a hold. */
+export const KINDS = {
+  in: { label: 'שאיפה', short: 'שאיפה', hint: 'הצורה גדלה' },
+  hold: { label: 'החזקה', short: 'החזקה', hint: 'הצורה נשארת גדולה' },
+  out: { label: 'נשיפה', short: 'נשיפה', hint: 'הצורה קטנה' },
+  empty: { label: 'החזקה ריקה', short: 'החזקה', hint: 'הצורה נשארת קטנה' },
+};
+export const LIMITS = { min: 1, max: 20, phases: 8, mine: 10, name: 24 };
+export const KIND_ORDER = ['in', 'hold', 'out', 'empty'];
+
+export const PRESETS = [
+  { id: 'calm478', name: '4-7-8', note: 'נשיפה ארוכה שמרגיעה', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 7 }, { k: 'out', s: 8 }] },
+  { id: 'box', name: 'קופסה', note: 'ארבעה צדדים שווים', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 4 }, { k: 'out', s: 4 }, { k: 'empty', s: 4 }] },
+  { id: 'sigh', name: 'אנחה כפולה', note: 'שתי שאיפות ונשיפה ארוכה', phases: [{ k: 'in', s: 2 }, { k: 'in', s: 1 }, { k: 'out', s: 6 }] },
+  { id: 'even', name: 'נשימה שקטה', note: 'שאיפה ונשיפה שוות', phases: [{ k: 'in', s: 5 }, { k: 'out', s: 5 }] },
+];
+
+export const cycleOf = (ex) => (ex?.phases || []).reduce((a, p) => a + (+p.s || 0), 0);
+/** Phase lengths in order, read right to left with the bar and the strip. */
+export const patternText = (ex) => (ex?.phases || []).map((p) => p.s).join(' · ');
+
+/** [name, seconds, scale] for the runner. Two inhales in a row fill the shape in steps. */
+export function toRunner(ex) {
+  let scale = 0.82;
+  return (ex?.phases || []).map((p, i) => {
+    if (p.k === 'in') scale = ex.phases[i + 1]?.k === 'in' ? 0.94 : 1;
+    else if (p.k === 'out') scale = 0.82;
+    return [KINDS[p.k]?.short || 'שאיפה', p.s, scale];
+  });
+}
+
+export function problems(ex) {
+  const phases = ex?.phases || [];
+  const out = [];
+  if (!phases.some((p) => p.k === 'in')) out.push('צריך לפחות שאיפה אחת');
+  if (!phases.some((p) => p.k === 'out')) out.push('צריך לפחות נשיפה אחת');
+  return out;
+}
+
+export const longHolds = (ex) => (ex?.phases || []).some((p) => (p.k === 'hold' || p.k === 'empty') && p.s >= 10);
+
+export function currentBreath(st) {
+  const id = st.settings?.breathId || 'calm478';
+  return (st.breaths || []).find((b) => b.id === id) || PRESETS.find((b) => b.id === id) || PRESETS[0];
+}
+
+export function cloneBreath(ex, { copy = false } = {}) {
+  return {
+    id: copy ? '' : (ex.id || ''),
+    name: String(ex.name || '').slice(0, LIMITS.name),
+    phases: (ex.phases || []).map((p) => ({ k: p.k, s: p.s })),
+  };
+}

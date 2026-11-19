@@ -1,8 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { ACH, syncUnlocks } from './achievements.js';
 import { adsAllowed, syncBanner } from './ads.js';
-import { DAY, HOUR, MIN, ils, localInputValue, ppcOf } from './calc.js';
-import { phaseAt } from './breath.js';
+import { DAY, HOUR, MIN, ils, localInputValue, ppcOf, uid } from './calc.js';
+import { KINDS, LIMITS, PRESETS, cloneBreath, currentBreath, phaseAt, problems, toRunner } from './breath.js';
 import { HEALTH } from './health.js';
 import { applyCheckin, applySlip, applyWin, blank, deleteSlip, migrate, parseBackup, updateSlip } from './model.js';
 import { applyStatusBar, haptic, hideSplash, isNative, onNotificationOpen, openLink, pickJsonNative, sharePayload, syncNotifications, writeCacheFile } from './native.js';
@@ -17,10 +17,6 @@ import { applyProduct, pouchVariant } from './prices.js';
 import { checkText } from './filter.js';
 import { applyDateInput, captureOnboard, habitDraft, obProblems, openCpdInput, pickBrand, refreshBrandList } from './onboard-view.js';
 
-const PHASES = {
-  '478': [['שאיפה', 4, 1], ['החזקה', 7, 1], ['נשיפה', 8, 0.82]],
-  box: [['שאיפה', 4, 1], ['החזקה', 4, 1], ['נשיפה', 4, 0.82], ['החזקה', 4, 0.82]],
-};
 let sos = null;
 let tipTimer = null;
 let toastTimer = 0;
@@ -157,7 +153,8 @@ function sosTick() {
 }
 
 function paintSos(sec) {
-  const P = PHASES[ui.breathMode];
+  const P = toRunner(currentBreath(st));
+  if (!P.length) return;
   const ph = phaseAt(P, sec - sos.offset);
   if (ph.step !== sos.step) {
     sos.step = ph.step;
@@ -185,6 +182,48 @@ function paintSos(sec) {
     toast('10 דקות עברו. הגל יכול לעבור גם בלי סיגריה.');
     if (st.settings.haptics) haptic('medium');
   }
+}
+
+let breathTry = 0;
+function stopBreathTry() {
+  clearInterval(breathTry);
+  breathTry = 0;
+}
+function readBreathDraft() {
+  const name = document.getElementById('bx-name');
+  if (name && ui.breathEdit) ui.breathEdit.name = name.value.slice(0, LIMITS.name);
+}
+function playBreathTry() {
+  stopBreathTry();
+  readBreathDraft();
+  const ex = ui.breathEdit;
+  if (!ex || problems(ex).length || !ex.phases.length) return;
+  let i = 0;
+  let left = ex.phases[0].s;
+  const paint = () => {
+    document.querySelectorAll('.bx-bar.big i').forEach((el, idx) => el.classList.toggle('on', idx === i));
+    const line = document.querySelector('[data-try]');
+    if (!line) return;
+    line.hidden = false;
+    const label = KINDS[ex.phases[i].k]?.label || '';
+    line.textContent = `${label} · ${left === 1 ? 'עוד שנייה' : `עוד ${left} שניות`}`;
+  };
+  paint();
+  breathTry = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      i += 1;
+      if (i >= ex.phases.length) {
+        stopBreathTry();
+        document.querySelectorAll('.bx-bar.big i').forEach((el) => el.classList.remove('on'));
+        const line = document.querySelector('[data-try]');
+        if (line) line.hidden = true;
+        return;
+      }
+      left = ex.phases[i].s;
+    }
+    paint();
+  }, 1000);
 }
 
 function seedProduct() {
@@ -417,7 +456,7 @@ function registerPreviewWorker() {
 }
 
 function applyShot(shot) {
-  const demoShots = new Set(['home', 'homeclean', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'slips', 'slipedit', 'slipdel', 'insight', 'checkin', 'unlock']);
+  const demoShots = new Set(['home', 'homeclean', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'slips', 'slipedit', 'slipdel', 'insight', 'bsos', 'bpick', 'bedit', 'bedit2', 'bmenu', 'checkin', 'unlock']);
   if (demoShots.has(shot)) {
     useMemory(demoState());
     syncUnlocks(st, now());
@@ -435,6 +474,15 @@ function applyShot(shot) {
   if (shot === 'home' || shot === 'homeclean') ui.route = 'home';
   if (shot === 'homeclean') st.slips = [];
   if (shot === 'sos') { ui.route = 'sos'; }
+  if (shot === 'bsos' || shot === 'bpick' || shot === 'bedit' || shot === 'bedit2' || shot === 'bmenu') {
+    st.breaths = [{ id: 'mine1', name: 'הנשימה שלי לערב', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 2 }, { k: 'out', s: 6 }, { k: 'empty', s: 2 }] }];
+    st.settings.breathId = 'mine1';
+  }
+  if (shot === 'bsos') { ui.route = 'sos'; ui.shotPhase = { i: 2, left: 4, clock: '7:42' }; }
+  if (shot === 'bpick') { ui.route = 'sos'; ui.overlay = 'breaths'; }
+  if (shot === 'bedit') { ui.route = 'breathedit'; ui.breathFrom = 'sos'; ui.breathEdit = { id: 'mine1', name: 'הנשימה שלי לערב', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 2 }, { k: 'out', s: 6 }, { k: 'empty', s: 2 }] }; }
+  if (shot === 'bedit2') { ui.route = 'breathedit'; ui.breathFrom = 'sos'; ui.breathEdit = { id: '', name: 'הנשימה של הבוקר', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 12 }, { k: 'out', s: 6 }] }; }
+  if (shot === 'bmenu') { ui.route = 'breathedit'; ui.breathFrom = 'sos'; ui.breathEdit = { id: 'mine1', name: 'הנשימה שלי לערב', phases: [{ k: 'in', s: 4 }, { k: 'hold', s: 2 }, { k: 'out', s: 6 }, { k: 'empty', s: 2 }] }; ui.breathMenu = true; }
   if (shot === 'health') ui.route = 'health';
   if (shot === 'badges') ui.route = 'badges';
   if (shot === 'pocket') ui.route = 'pocket';
@@ -486,14 +534,128 @@ const actions = {
   'sos-close'() { stopSos(); ui.route = 'home'; render(); },
   'sos-won'() { const dur = sos ? Date.now() - sos.start : 0; logWin({ dur }); },
   'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
-  breath(el) {
-    ui.breathMode = el.dataset.mode;
+  breaths() { ui.breathFrom = ui.route === 'settings' ? 'settings' : 'sos'; ui.overlay = 'breaths'; render(); },
+  'breath-pick'(el) {
+    st.settings.breathId = el.dataset.id;
+    ui.overlay = null;
+    if (sos) {
+      sos.offset = Math.floor((Date.now() - sos.t0) / 1000);
+      sos.step = -1;
+      sosTick();
+    }
+    persist();
+  },
+  'breath-edit'(el) {
+    const id = el.dataset.id;
+    const mine = (st.breaths || []).find((b) => b.id === id);
+    const preset = PRESETS.find((b) => b.id === id);
+    const src = mine || preset;
+    if (!src) return;
+    if (!mine && (st.breaths || []).length >= LIMITS.mine) { toast('אפשר עד 10 תרגילים משלך'); return; }
+    ui.breathEdit = cloneBreath(src, { copy: !mine });
+    if (!mine) ui.breathEdit.name = src.name;
+    ui.breathMenu = false;
+    ui.overlay = null;
+    ui.route = 'breathedit';
     render();
-    if (!sos) return;
-    // The new pattern starts on the current second; the wave clock keeps running.
-    sos.offset = Math.floor((Date.now() - sos.t0) / 1000);
-    sos.step = -1;
-    sosTick();
+  },
+  'breath-new'() {
+    if ((st.breaths || []).length >= LIMITS.mine) { toast('אפשר עד 10 תרגילים משלך'); return; }
+    ui.breathEdit = { id: '', name: 'התרגיל שלי', phases: [{ k: 'in', s: 4 }, { k: 'out', s: 4 }] };
+    ui.breathMenu = false;
+    ui.overlay = null;
+    ui.route = 'breathedit';
+    render();
+  },
+  'breath-back'() {
+    stopBreathTry();
+    ui.breathMenu = false;
+    ui.breathEdit = null;
+    ui.route = ui.breathFrom === 'settings' ? 'settings' : 'sos';
+    ui.overlay = 'breaths';
+    render();
+  },
+  'ph-kind'(el) {
+    readBreathDraft();
+    const i = +el.dataset.i;
+    const p = ui.breathEdit?.phases[i];
+    if (!p) return;
+    p.k = KIND_ORDER[(KIND_ORDER.indexOf(p.k) + 1) % KIND_ORDER.length];
+    render();
+  },
+  'ph-s'(el) {
+    readBreathDraft();
+    const p = ui.breathEdit?.phases[+el.dataset.i];
+    if (!p) return;
+    p.s = Math.max(LIMITS.min, Math.min(LIMITS.max, p.s + (+el.dataset.d || 0)));
+    render();
+  },
+  'ph-rm'(el) {
+    readBreathDraft();
+    ui.breathEdit?.phases.splice(+el.dataset.i, 1);
+    render();
+  },
+  'ph-move'(el) {
+    readBreathDraft();
+    const i = +el.dataset.i;
+    const j = i + (+el.dataset.d || 0);
+    const phases = ui.breathEdit?.phases;
+    if (!phases || j < 0 || j >= phases.length) return;
+    const [item] = phases.splice(i, 1);
+    phases.splice(j, 0, item);
+    render();
+  },
+  'ph-menu'() { readBreathDraft(); ui.breathMenu = true; render(); },
+  'menu-off'() { ui.breathMenu = false; if (ui.overlay === 'breathdel') ui.overlay = null; render(); },
+  'ph-add'(el) {
+    readBreathDraft();
+    const phases = ui.breathEdit?.phases;
+    if (!phases || phases.length >= LIMITS.phases) return;
+    phases.push({ k: el.dataset.k || 'in', s: 4 });
+    ui.breathMenu = false;
+    render();
+  },
+  'breath-try'() { playBreathTry(); },
+  'breath-save'() {
+    readBreathDraft();
+    const ex = ui.breathEdit;
+    if (!ex || problems(ex).length) return;
+    const name = (ex.name || '').trim().slice(0, LIMITS.name) || 'תרגיל';
+    const phases = ex.phases.map((p) => ({ k: p.k, s: p.s }));
+    if (ex.id && (st.breaths || []).some((b) => b.id === ex.id)) {
+      const row = st.breaths.find((b) => b.id === ex.id);
+      row.name = name;
+      row.phases = phases;
+      st.settings.breathId = ex.id;
+    } else {
+      if ((st.breaths || []).length >= LIMITS.mine) { toast('אפשר עד 10 תרגילים משלך'); return; }
+      const id = uid();
+      st.breaths = [...(st.breaths || []), { id, name, phases }];
+      st.settings.breathId = id;
+    }
+    stopBreathTry();
+    ui.breathEdit = null;
+    ui.breathMenu = false;
+    ui.overlay = null;
+    ui.route = ui.breathFrom === 'settings' ? 'settings' : 'sos';
+    if (sos) {
+      sos.offset = Math.floor((Date.now() - sos.t0) / 1000);
+      sos.step = -1;
+      sosTick();
+    }
+    persist();
+  },
+  'breath-del'() { ui.overlay = 'breathdel'; render(); },
+  'breath-del-yes'() {
+    const id = ui.breathEdit?.id;
+    st.breaths = (st.breaths || []).filter((b) => b.id !== id);
+    if (st.settings.breathId === id) st.settings.breathId = 'calm478';
+    stopBreathTry();
+    ui.breathEdit = null;
+    ui.overlay = null;
+    ui.route = ui.breathFrom === 'settings' ? 'settings' : 'sos';
+    if (sos) { sos.step = -1; sosTick(); }
+    persist();
   },
   win() { logWin({ dur: 0 }); },
   'open-checkin'() { ui.overlay = 'checkin'; ui.route = 'home'; render(); },
@@ -623,6 +785,7 @@ const actions = {
   },
   async set(el) {
     const k = el.dataset.set;
+    if (k === 'breaths') { ui.breathFrom = 'settings'; ui.overlay = 'breaths'; ui.editor = null; render(); return; }
     if (k === 'export') return exportBackup();
     if (k === 'import') return pickBackup();
     if (k === 'reset' || k === 'wipe') { ui.overlay = 'wipe'; ui.editor = null; render(); return; }
@@ -955,7 +1118,7 @@ async function boot() {
       });
     } catch { /* ignore */ }
   }
-  if (ui.route === 'sos' && shot === 'sos') {
+  if (ui.route === 'sos' && (shot === 'sos' || shot === 'bsos' || shot === 'bpick')) {
     /* static frame for screenshots; don't start the timer loop over the painted phase */
   } else if (ui.route === 'share') paintCard();
   scheduleNotes();

@@ -49,6 +49,10 @@ export const ui = {
   cost: null,
   scroll: 0,
   horizon: 10,
+  breathEdit: null,
+  breathMenu: false,
+  breathFrom: 'sos',
+  shotPhase: null,
 };
 
 export function bump() { ui.rev += 1; }
