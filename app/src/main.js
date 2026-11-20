@@ -456,7 +456,7 @@ function registerPreviewWorker() {
 }
 
 function applyShot(shot) {
-  const demoShots = new Set(['home', 'homeclean', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'slips', 'slipedit', 'slipdel', 'insight', 'bsos', 'bpick', 'bedit', 'bedit2', 'bmenu', 'checkin', 'unlock']);
+  const demoShots = new Set(['home', 'homeclean', 'sos', 'health', 'badges', 'pocket', 'stats', 'journal', 'history', 'settings', 'settings2', 'share', 'week', 'slip', 'slipdone', 'slips', 'slipedit', 'slipdel', 'insight', 'bsos', 'bpick', 'bedit', 'bedit2', 'bmenu', 'checkin', 'unlock', 'privacy', 'aboutinfo']);
   if (demoShots.has(shot)) {
     useMemory(demoState());
     syncUnlocks(st, now());
@@ -492,6 +492,8 @@ function applyShot(shot) {
   if (shot === 'history') { ui.route = 'journal'; ui.journalTab = 'history'; }
   if (shot === 'settings') ui.route = 'settings';
   if (shot === 'settings2') { ui.route = 'settings'; ui.scroll = 640; }
+  if (shot === 'privacy') { ui.route = 'privacy'; ui.legalFrom = 'settings'; }
+  if (shot === 'aboutinfo') { ui.route = 'about'; ui.legalFrom = 'settings'; }
   if (shot === 'share') ui.route = 'share';
   if (shot === 'week') ui.route = 'week';
   if (shot === 'slip' || shot === 'slipedit' || shot === 'slipdel') {
@@ -529,13 +531,24 @@ const actions = {
     const next = document.querySelector('.screen.money-screen');
     if (next) next.scrollTop = top;
   },
-  back() { ui.route = 'home'; ui.overlay = null; render(); },
+  back() {
+    if (ui.route === 'privacy' || ui.route === 'about') {
+      ui.route = ui.legalFrom || 'settings';
+      ui.legalFrom = null;
+      ui.overlay = null;
+      render();
+      return;
+    }
+    ui.route = 'home';
+    ui.overlay = null;
+    render();
+  },
   sos() { startSos(); },
   'sos-close'() { stopSos(); ui.route = 'home'; render(); },
   'sos-won'() { const dur = sos ? Date.now() - sos.start : 0; logWin({ dur }); },
   'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
   breaths() { ui.breathFrom = ui.route === 'settings' ? 'settings' : 'sos'; ui.overlay = 'breaths'; render(); },
-  info() { ui.overlay = 'about'; render(); },
+  info() { ui.legalFrom = ui.route; ui.route = 'about'; ui.overlay = null; render(); },
   'crave-n'(el) {
     const row = el.closest('[data-snap]');
     if (!row) return;
@@ -811,8 +824,8 @@ const actions = {
     if (k === 'export') return exportBackup();
     if (k === 'import') return pickBackup();
     if (k === 'reset' || k === 'wipe') { ui.overlay = 'wipe'; ui.editor = null; render(); return; }
-    if (k === 'privacy') { location.href = './privacy.html'; return; }
-    if (k === 'about') { ui.overlay = 'about'; render(); return; }
+    if (k === 'privacy') { ui.legalFrom = 'settings'; ui.route = 'privacy'; ui.overlay = null; render(); return; }
+    if (k === 'about') { ui.legalFrom = 'settings'; ui.route = 'about'; ui.overlay = null; render(); return; }
     if (k === 'hmo') { ui.overlay = 'hmo'; render(); return; }
     if (k === 'restore') return restore();
     const editors = ['date', 'cpd', 'goal', 'why', 'cost', 'name', 'gender', 'checkin'];
@@ -1093,7 +1106,37 @@ function tick() {
 }
 tick.min = 0;
 
+/** Fill the visual viewport again after resume, browser dismiss, or rotation.
+ *  A stale 100vh / webview height is what leaves a black band at the bottom. */
+function pinAppBox() {
+  const vv = window.visualViewport;
+  const h = Math.round(Math.max(window.innerHeight || 0, vv?.height || 0));
+  if (h < 1) return;
+  const top = Math.round(vv?.offsetTop || 0);
+  document.documentElement.style.setProperty('--app-h', `${h}px`);
+  const app = document.getElementById('app');
+  if (app) {
+    app.style.height = `${h}px`;
+    app.style.top = `${top}px`;
+  }
+  const root = document.scrollingElement;
+  if (root && root.scrollTop) root.scrollTop = 0;
+}
+
+function bindAppBox() {
+  pinAppBox();
+  window.addEventListener('resize', pinAppBox);
+  window.addEventListener('orientationchange', pinAppBox);
+  window.addEventListener('pageshow', pinAppBox);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') pinAppBox();
+  });
+  window.visualViewport?.addEventListener('resize', pinAppBox);
+  window.visualViewport?.addEventListener('scroll', pinAppBox);
+}
+
 async function boot() {
+  bindAppBox();
   await load();
   const q = new URLSearchParams(location.search);
   const shot = q.get('shot');
@@ -1134,10 +1177,13 @@ async function boot() {
     try {
       const { App } = await import('@capacitor/app');
       App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) pinAppBox();
         if (!isActive || !st.onboarded) return;
         const fresh = syncUnlocks(st, now());
         if (fresh.length) { collectUnlocks(fresh); save(); showUnlock(); }
       });
+      const { Browser } = await import('@capacitor/browser');
+      Browser.addListener('browserFinished', () => pinAppBox());
     } catch { /* ignore */ }
   }
   if (ui.route === 'sos' && (shot === 'sos' || shot === 'bsos' || shot === 'bpick')) {

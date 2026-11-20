@@ -215,9 +215,11 @@ function moneySplit(amount) {
   return { whole: s.slice(0, i), agorot: s.slice(i) };
 }
 
-/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. One size for every length. */
-function moneyCluster(whole, agorot) {
-  return `<div class="fig num-ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
+/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. One size for every length.
+ *  `side` hangs off the leading side (physical left) and does not move the axis. */
+function moneyCluster(whole, agorot, side = '') {
+  const word = side ? `<span class="sideword">${side}</span>` : '';
+  return `<div class="fig num-ltr"><span class="anchor">${word}<bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
 }
 
 function lifeParts(minutes) {
@@ -285,6 +287,8 @@ function view() {
     case 'stats': return screen(stats(), 'home');
     case 'journal': return screen(journal(), 'journal');
     case 'settings': return screen(settings(), 'settings');
+    case 'privacy': return privacyScreen();
+    case 'about': return aboutScreen();
     case 'share': return share();
     case 'week': return week();
     case 'slipdone': return slipDone();
@@ -498,11 +502,11 @@ function pocket() {
       title: 'הכיס',
       sub: 'מה שחזר אליך',
       action: `<button class="iconbtn hero-act" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 18)}</button>`,
-      fig: moneyCluster(parts.whole, parts.agorot),
-      cap: `נשארו בכיס · <span class="hot">עוד <bdi dir="ltr"><span data-live="hour">${hourText(day)}</span> <span class="shekel">₪</span></bdi> בכל שעה</span>`,
+      fig: moneyCluster(parts.whole, parts.agorot, 'נחסכו'),
+      cap: `חיסכון של <bdi dir="ltr"><span class="inline-num" data-live="hour">${hourText(day)}</span> ₪</bdi> כל שעה`,
     })}
-    <p class="facts"><bdi dir="ltr" class="n" data-roll="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו • <bdi dir="ltr" class="n" data-live="pouches">${nf(units.n, 1)}</bdi> ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'}</p>
-    <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span><bdi dir="ltr" class="amt"><span data-live="rate${i}">${rateText(n)}</span><span class="shekel">₪</span></bdi></div>`).join('')}</div>
+    <p class="facts"><bdi dir="ltr" class="n inline-num" data-live="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו • <bdi dir="ltr" class="n inline-num" data-live="pouches">${nf(units.n, 1)}</bdi> ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'}</p>
+    <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span><bdi dir="ltr" class="amt"><span class="inline-num" data-live="rate${i}">${rateText(n)}</span><span class="shekel">₪</span></bdi></div>`).join('')}</div>
     <div class="pk-block">
       <div class="pk-hd"><h2>הישגי כיס</h2><div class="aside">${earned} מתוך ${moneyAch.length} · <button data-act="go" data-go="badges">כל ההישגים</button></div></div>
       <div class="pk-medals">${moneyAch.map((a) => {
@@ -529,7 +533,7 @@ function pocket() {
       <p class="grow-cap">בעוד ${horizon} שנים, אם כל חודש נכנס למדד רחב</p>
       <div class="plants">${plants.map(([y, art, h]) => {
         const v = futureValue(saved, monthly, GROWTH_RATE, y);
-        return `<button class="plant${y === horizon ? ' on' : ''}" data-act="horizon" data-y="${y}"><img alt="" src="art/pocket/spots/${art}.webp" style="height:${h}px"><span class="y">${y} שנים</span><span class="v"><bdi dir="ltr"><span data-live="fv${y}">${nf(v, 0)}</span><span class="shekel">₪</span></bdi></span></button>`;
+        return `<button class="plant${y === horizon ? ' on' : ''}" data-act="horizon" data-y="${y}"><img alt="" src="art/pocket/spots/${art}.webp" style="height:${h}px"><span class="y">${y} שנים</span><span class="v"><bdi dir="ltr"><span class="inline-num" data-live="fv${y}">${nf(v, 0)}</span><span class="shekel">₪</span></bdi></span></button>`;
       }).join('')}</div>
       <p class="note">בהנחת תשואה של כ-7% בשנה, הממוצע ההיסטורי של מדדים רחבים. להמחשה בלבד, לא ייעוץ השקעות.</p>
     </div>
@@ -1053,7 +1057,6 @@ function overlay() {
   if (ui.overlay === 'slipdel') return slipDeleteSheet();
   if (ui.overlay === 'insight') return insightSheet();
   if (ui.overlay === 'checkin') return checkinSheet();
-  if (ui.overlay === 'about') return aboutSheet();
   if (ui.overlay === 'hmo') return hmoSheet();
   if (ui.overlay === 'wipe') return wipeSheet();
   if (ui.editor) return editorSheet();
@@ -1118,13 +1121,52 @@ function checkinSheet() {
     <p class="small" style="margin-top:14px;text-align:center">רצף נוכחי: ${streak}</p></div>`;
 }
 
-function aboutSheet() {
-  return `<div class="dim" data-act="overlay-off"></div><div class="panel"><div class="grab"></div><div class="h1">אודות</div>
-    <p class="lead" style="margin-top:8px">${WORDMARK} הוא מונה גמילה פרטי. המידע הבריאותי כללי, לפי גופי בריאות ציבוריים (WHO, CDC, NHS, NICE, NCI). הוא לא ייעוץ רפואי ולא מחליף רופא או קופת חולים.</p>
-    <p class="small" style="margin-top:8px">"כ-11 דקות חיים לסיגריה" היא הערכה נפוצה בלבד, ואפשר לשנות אותה.</p>
-    <p class="small" style="margin-top:8px">לקריאה נוספת: American Cancer Society, American Lung Association.</p>
-    ${isNative() ? '' : '<p class="small" style="margin-top:8px">זו גרסת דפדפן. תזכורות, רטט מלא ורכישת הסרת פרסומות זמינים באפליקציה המותקנת. פרסומות לא מוצגות כאן.</p>'}
-    <button class="btn primary" data-act="overlay-off" style="width:100%;margin-top:16px">סגירה</button></div>`;
+function legalBar(title) {
+  return `<header class="legal-bar"><button class="iconbtn" data-act="back" aria-label="חזרה">${icon('chevron', 16)}</button><h1>${title}</h1></header>`;
+}
+
+function privacyScreen() {
+  return `<div class="screen legal" data-scroll>
+    ${legalBar('מדיניות פרטיות')}
+    <div class="legal-body">
+      <p class="legal-updated">עדכון: 18 בנובמבר 2026. BreathAnew ("האפליקציה") הוא מונה גמילה מעישון. אין חשבון ואין שרת שלנו.</p>
+      <h2>מה נשמר, ואיפה</h2>
+      <p>תאריך ההפסקה, הרגל העישון, המחירים, הסיבות, יעד החיסכון, היומן, המעידות, ההישגים, והעדפות התצוגה נשמרים רק במכשיר. אפשר להוסיף תמונה אישית. גם היא נשמרת רק במכשיר, ומופיעה במסך הנשימה. גיבוי הוא קובץ שמייצאים בעצמכם דרך תפריט השיתוף או הורדה. אנחנו לא מקבלים את הקובץ.</p>
+      <p>האפליקציה לא קוראת את הנתונים של האפליקציה האישית הישנה ("נשימה חדשה") ולא כותבת אליהם. אפשר לייבא קובץ גיבוי ישן באופן ידני, אם בוחרים בכך.</p>
+      <h2>מה לא נאסף</h2>
+      <p>אין אנליטיקה שלנו, אין פרסום של תוכן היומן, ואין מכירת מידע. המידע הרפואי באפליקציה הוא מידע כללי ואינו ייעוץ רפואי.</p>
+      <h2>פרסומות</h2>
+      <p>כשהפרסומות יופעלו בחנויות, הן יוצגו רק באפליקציה המותקנת, דרך Google AdMob, ורק במסכים רגועים. לא במסך הנשימה, לא ברישום מעידה, לא בהיכרות, לא ברגע פתיחת הישג, ולא בשלושת הימים הראשונים. בגרסת הדפדפן לא מוצגות פרסומות.</p>
+      <p>AdMob והשותפים של גוגל עשויים לעבד מזהה פרסום, כתובת IP מקוצרת, ומידע על המכשיר כדי להציג מודעה ולמדוד אותה. באייפון תופיע בקשת מעקב (App Tracking Transparency), ואפשר לסרב. באזורים שדורשים זאת תופיע בחירת הסכמה (Google UMP). אפשר להסיר פרסומות ברכישה חד-פעמית. את התשלום מעבדות אפל או גוגל, לא אנחנו, ואין לנו את מספר כרטיס האשראי.</p>
+      <p>כרגע חשבונות המודעות והחנות עדיין לא מחוברים, ודגל הפרסומות כבוי.</p>
+      <h2>התראות</h2>
+      <p>תזכורת ערב ותחנות בריאות נקבעות במכשיר עצמו, אם מאשרים זאת. הן לא עוברות דרך שרת שלנו.</p>
+      <h2>ילדים</h2>
+      <p>האפליקציה לא מיועדת לילדים מתחת לגיל 18. בהיכרות צריך לאשר גיל 18 ומעלה.</p>
+      <h2>יצירת קשר</h2>
+      <p>שאלות פרטיות: <a href="mailto:orenreic@gmail.com">orenreic@gmail.com</a></p>
+      <div class="legal-en" dir="ltr" lang="en">
+        <h2>Privacy policy</h2>
+        <p>Updated 18 November 2026. BreathAnew is a quit-smoking counter. There is no account and no server of ours.</p>
+        <p>Quit date, habit, prices, reasons, savings goal, journal, slips, achievements, and display preferences stay on the device. An optional photo stays on the device and is shown on the breathing screen. A backup is a file you export yourself. We never receive that file.</p>
+        <p>No first-party analytics and no sale of journal content. Health text is general information, not medical advice. When ads are on in the store builds they use Google AdMob on calm screens only, never on the breathing screen, the slip flow, onboarding, an unlock, or during the first three days. The browser preview shows no ads. A one-time purchase can remove ads. Apple or Google process the payment.</p>
+        <p>The app is not directed at children under 18. Privacy questions: <a href="mailto:orenreic@gmail.com">orenreic@gmail.com</a></p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function aboutScreen() {
+  const web = isNative() ? '' : '<p>זו גרסת דפדפן. תזכורות, רטט מלא ורכישת הסרת פרסומות זמינים באפליקציה המותקנת. פרסומות לא מוצגות כאן.</p>';
+  return `<div class="screen legal" data-scroll>
+    ${legalBar('אודות')}
+    <div class="legal-body">
+      <p>${WORDMARK} הוא מונה גמילה פרטי. המידע הבריאותי כללי, לפי גופי בריאות ציבוריים (WHO, CDC, NHS, NICE, NCI). הוא לא ייעוץ רפואי ולא מחליף רופא או קופת חולים.</p>
+      <p>"כ-11 דקות חיים לסיגריה" היא הערכה נפוצה בלבד, ואפשר לשנות אותה.</p>
+      <p>לקריאה נוספת: American Cancer Society, American Lung Association.</p>
+      ${web}
+    </div>
+  </div>`;
 }
 function hmoSheet() {
   const rows = [['כללית', 'לשאול על סדנאות גמילה וטיפול תרופתי'], ['מכבי', 'לשאול על סדנאות גמילה וטיפול תרופתי'], ['מאוחדת', 'לשאול על סדנאות גמילה וטיפול תרופתי'], ['לאומית', 'לשאול על סדנאות גמילה וטיפול תרופתי']];
@@ -1207,6 +1249,13 @@ export function livePatch() {
   for (const el of document.querySelectorAll('[data-live]')) {
     const next = rolls[el.dataset.live];
     if (next == null) continue;
+    // Small numbers that sit in a sentence stay plain text so the digits,
+    // the decimal point, and the Hebrew share one baseline. Digit strips
+    // are only for the big ticking figures (data-roll).
+    if (el.classList.contains('inline-num')) {
+      if (el.textContent !== next) el.textContent = next;
+      continue;
+    }
     if (/[0-9]/.test(next)) rollInto(el, next);
     else if (!el.children.length && el.textContent !== next) el.textContent = next;
   }

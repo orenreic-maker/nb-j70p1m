@@ -9,6 +9,7 @@ const cap = {
   appId: cfg.appId,
   appName: cfg.appName,
   webDir: 'dist',
+  backgroundColor: '#F6EFE3',
   android: { allowMixedContent: false },
   ios: { contentInset: 'automatic' },
   plugins: {
