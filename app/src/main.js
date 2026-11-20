@@ -751,7 +751,7 @@ const actions = {
   mood(el) { ui.checkinMood = +el.dataset.m; render(); },
   checkin() {
     if (!ui.checkinMood) { toast('בוחרים מצב רוח, נגיעה אחת'); return; }
-    applyCheckin(st, { now: now(), mood: ui.checkinMood, crave: +document.getElementById('crave')?.value || 0, note: document.getElementById('cnote')?.value || '' });
+    applyCheckin(st, { now: now(), mood: ui.checkinMood, crave: +document.querySelector('[data-snap="crave"]')?.dataset.value || 0, note: document.getElementById('cnote')?.value || '' });
     const fresh = syncUnlocks(st, now());
     collectUnlocks(fresh);
     toast(ui.checkinMood <= 2 ? 'נשמר. ימים קשים עוברים.' : 'נשמר. תודה על הרצף.');

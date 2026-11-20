@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DAY, HOUR, MIN, cigsAt, keepSlips, lastSmokeAt, moneyAt, ppcOf, fmtLife } from '../src/calc.js';
+import { DAY, HOUR, MIN, cigsAt, goalBarWidth, goalProgress, keepSlips, lastSmokeAt, moneyAt, ppcOf, fmtLife } from '../src/calc.js';
 import { applySlip, blank, deleteSlip, migrate, updateSlip } from '../src/model.js';
 import { HEALTH, RESTARTS, withSlips } from '../src/health.js';
 import { ACH } from '../src/achievements.js';
@@ -26,6 +26,23 @@ test('four days and 05:23:03 matches the board numbers', () => {
   assert.equal(Math.floor(cigs), 63);
   assert.equal(moneyAt(st, t).toFixed(2), '105.34');
   assert.equal(fmtLife(cigs * 11).text, '11:37');
+});
+
+test('the goal fill is one number for home and pocket', () => {
+  const st = blank();
+  st.settings.quitAt = 0;
+  st.settings.cpd = 15;
+  st.settings.mode = 'ryo';
+  st.settings.goalPrice = 6000;
+  const t = 4 * DAY;
+  const a = goalProgress(st, t);
+  const b = goalProgress(st, t);
+  assert.equal(a.saved, b.saved);
+  assert.equal(a.ratio, b.ratio);
+  assert.ok(a.ratio > 0 && a.ratio < 0.08);
+  assert.equal(goalBarWidth(a.ratio), goalBarWidth(b.ratio));
+  assert.equal(goalBarWidth(0), 0);
+  assert.equal(goalBarWidth(1.4), 100);
 });
 
 test('a slip keeps history and does not wipe the quit date', () => {

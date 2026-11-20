@@ -76,6 +76,21 @@ export function moneyAt(st, t) {
   return cigsAt(st, t) * ppcOf(st.settings || {});
 }
 
+/** One savings figure for the goal on היום and in הכיס. */
+export function goalProgress(st, t) {
+  const price = num(st.settings?.goalPrice);
+  const saved = moneyAt(st, t) + prevMoney(st);
+  const ratio = price > 0 ? Math.min(1, Math.max(0, saved / price)) : 0;
+  return { price, saved, ratio };
+}
+
+/** Same fill on every goal bar. A tiny start stays visible, and never past the end. */
+export function goalBarWidth(ratio) {
+  const pct = Math.max(0, Math.min(100, (Number(ratio) || 0) * 100));
+  if (pct > 0 && pct < 8) return Math.max(pct, 6);
+  return pct;
+}
+
 export function attemptStats(st, a) {
   const cpd = num(a.cpd);
   const smoked = Math.max(0, (a.end - a.start) * (cpd / DAY) - slipsBetween(st, a.start, a.end, false));
