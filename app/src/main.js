@@ -535,6 +535,7 @@ const actions = {
   'sos-won'() { const dur = sos ? Date.now() - sos.start : 0; logWin({ dur }); },
   'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
   breaths() { ui.breathFrom = ui.route === 'settings' ? 'settings' : 'sos'; ui.overlay = 'breaths'; render(); },
+  info() { ui.overlay = 'about'; render(); },
   'breath-pick'(el) {
     st.settings.breathId = el.dataset.id;
     ui.overlay = null;

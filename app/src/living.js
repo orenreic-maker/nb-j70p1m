@@ -23,9 +23,9 @@ function animClass(role, i) {
   return '';
 }
 
-export function livingScene(days, dark) {
+export function livingScene(days, dark, opt = {}) {
   const stage = stageFor(Math.max(0, days));
-  const layers = SCENES[stage.id] || [];
+  const layers = (SCENES[stage.id] || []).filter((l) => !(opt.omit || []).includes(l.role));
   const W = CANVAS.w;
   const H = CANVAS.h;
   let clouds = 0;
@@ -43,5 +43,7 @@ export function livingScene(days, dark) {
     const delay = (kind % 5) * 0.6;
     return `<div class="ly${sky}${sun}" style="${box};z-index:${l.z};--d:${l.depth}"><img class="${motion}" src="art/${file}" alt="" draggable="false" decoding="async" style="opacity:${l.opacity};animation-delay:${delay}s"></div>`;
   }).join('');
-  return { stage, html: `<div class="stack" aria-hidden="true">${html}</div>` };
+  const c = opt.center;
+  const center = c ? `<div class="ly center" style="left:${(c.x / W) * 100}%;top:${(c.y / H) * 100}%;width:${(c.w / W) * 100}%;height:${(c.w / W) * (W / H) * 100}%;z-index:${c.z || 26}"><img class="sway-soft" src="${c.src}" alt="" draggable="false"></div>` : '';
+  return { stage, html: `<div class="stack" aria-hidden="true">${html}${center}</div>` };
 }

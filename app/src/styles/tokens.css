@@ -18,11 +18,11 @@
   --c-sky-1:#E7DCC6; --c-sky-2:#F1E6D3; /* illustration sky */
   --c-dot-on:var(--c-hill); --c-dot-off:#DED3BF;   /* dot grid (from Direction C) */
   /* — type — */
-  --f-display:"Karantina";   /* OFL. headlines + hero numerals. No generic fallback. */
-  --f-text:"Plex Hebrew";     /* OFL. UI text. Weights 400–700 are self-hosted woff2. */
-  --t-hero:clamp(120px,38vw,168px)/.78 var(--f-display);   /* 700 */
-  --t-display:clamp(44px,13vw,60px)/.92 var(--f-display);  /* 700 */
-  --t-h1:clamp(32px,10vw,40px)/.95 var(--f-display);       /* 700 */
+  --f-display:"Fredoka";   /* OFL. One family for display, text, Hebrew, Latin and digits. */
+  --f-text:"Fredoka";
+  --t-hero:96px/.9 var(--f-display);
+  --t-display:58px/1 var(--f-display);
+  --t-h1:28px/1.15 var(--f-display);
   --t-h2:20px/1.3 var(--f-text);    /* 600 */
   --t-num:26px/1 var(--f-text);     /* 500, tabular */
   --t-body:15px/1.5 var(--f-text);  /* 400 */

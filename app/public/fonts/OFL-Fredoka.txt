@@ -1,0 +1,8 @@
+Copyright 2016 The Fredoka Project Authors (https://github.com/hafontia/Fredoka-One)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: http://scripts.sil.org/OFL
+The full license text: https://openfontlicense.org/open-font-license/
+
+Fredoka is self-hosted as a woff2 subset (Hebrew, Latin, digits, punctuation, ₪).
+The app does not request fonts from Google at runtime.

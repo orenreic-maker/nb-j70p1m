@@ -100,12 +100,37 @@ export function render() {
     bindLiving();
     noteStage();
   }
+  pinDigits();
   if (enterHealth) introFrame = requestAnimationFrame(() => runHealthIntro());
   if (ui.route === 'onboard' && ui.obStep === 0) startWelcomeTease();
   else stopWelcomeTease();
   if (ui.route === 'onboard') bindOnboard();
   if (ui.route === 'breathedit') bindPhaseDrag();
   bindDaySnaps();
+}
+
+/** Widest Fredoka digit, as an em, so a ticking 1 and an 8 take the same box. */
+function pinDigits() {
+  if (document.documentElement.dataset.dg === '1') return;
+  const measure = () => {
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font:600 100px Fredoka,sans-serif';
+    document.body.appendChild(probe);
+    let max = 0;
+    for (const weight of ['500', '600', '700']) {
+      probe.style.fontWeight = weight;
+      for (const d of '0123456789') {
+        probe.textContent = d;
+        max = Math.max(max, probe.getBoundingClientRect().width);
+      }
+    }
+    probe.remove();
+    if (max < 1) return;
+    document.documentElement.style.setProperty('--dgw', `${(max / 100).toFixed(4)}em`);
+    document.documentElement.dataset.dg = '1';
+  };
+  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(measure);
+  else measure();
 }
 
 /** Vertical digit strip. The shekel mark is never inside this node. */
@@ -191,18 +216,9 @@ function moneySplit(amount) {
   return { whole: s.slice(0, i), agorot: s.slice(i) };
 }
 
-/** d3–d6 from the integer digits only, so the font can shrink without moving the axis. */
-function digitClass(whole) {
-  const n = String(whole).replace(/\D/g, '').length;
-  if (n >= 6) return ' d6';
-  if (n >= 5) return ' d5';
-  if (n >= 4) return ' d4';
-  return ' d3';
-}
-
-/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. */
+/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. One size for every length. */
 function moneyCluster(whole, agorot) {
-  return `<div class="fig num-ltr${digitClass(whole)}"><span class="anchor"><bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
+  return `<div class="fig num-ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
 }
 
 function lifeParts(minutes) {
@@ -278,6 +294,24 @@ function view() {
   }
 }
 
+/** One hero for every tab: same band, same fade, title on the art, the key figure below it. */
+function hero({ art, title, sub = '', action = '', fig = '', cap = '' }) {
+  return `<header class="hero">
+      <div class="hero-art">${art}</div>
+      <div class="hero-bar"><div class="hero-tt"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>${action}</div>
+    </header>
+    ${fig ? `<div class="hero-fig">${fig}${cap ? `<div class="hero-cap">${cap}</div>` : ''}</div>` : ''}`;
+}
+
+function plainFig(n) {
+  return `<div class="fig num-ltr"><span class="anchor"><bdi dir="ltr" class="main">${n}</bdi><span class="tails"></span></span></div>`;
+}
+
+function landscape(center, dark, days) {
+  const sc = livingScene(days, dark, { omit: ['sun', 'sun-glow', 'tree', 'bird'], center });
+  return `<div class="living${dark ? ' dark' : ''}">${sc.html}</div>`;
+}
+
 function home() {
   const t = now();
   const q = st.settings.quitAt;
@@ -313,21 +347,19 @@ function home() {
     ? `<button class="slim" data-act="open-slips">${spot('sprout', 36)}<span class="col"><span class="one">${fmtDur(sinceSmoke, 2)} מאז הסיגריה האחרונה</span><span class="sub">${keptCigs === 1 ? 'סיגריה אחת' : `${nf(keptCigs, 0)} סיגריות`} מאז ההפסקה · ${kept.length === 1 ? 'מעידה אחת' : `${kept.length} מעידות`} ביומן</span></span>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`
     : '';
   return `<div class="home screen">
-    <header class="home-hero">
-      <div class="home-art living${dark ? ' dark' : ''}" data-stage="${stage.id}">${scene.html}</div>
-      <div class="stage-tag">יום ${days} · ${stage.label}</div>
-      <div class="brandrow">${wordmark(15, dark)}<button class="iconbtn" style="background:transparent" data-act="go" data-go="share" aria-label="שיתוף">${spot('share', 28) || icon('share', 20)}</button></div>
-      <button class="pocket" data-act="go" data-go="pocket">
-        ${moneyCluster(parts.whole, parts.agorot)}
-        <div class="k">נשארו בכיס</div>
-      </button>
-    </header>
+    ${hero({
+      art: `<div class="living${dark ? ' dark' : ''}" data-stage="${stage.id}">${scene.html}</div>`,
+      title: st.settings.name ? `${esc(greet(t))}, ${esc(st.settings.name)}` : esc(greet(t)),
+      sub: `יום ${days} · ${stage.label}`,
+      action: `<button class="iconbtn hero-act" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 18)}</button>`,
+      fig: `<button class="hero-tap" data-act="go" data-go="pocket">${moneyCluster(parts.whole, parts.agorot)}</button>`,
+      cap: 'נשארו בכיס',
+    })}
     <div class="home-body">
-      ${st.settings.name ? `<p class="hello">${esc(greet(t))}, ${esc(st.settings.name)}</p>` : ''}
       <div class="meters">
         <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><div class="u"><span data-live="daysa">${dayA}</span><span>${kept.length ? 'מאז ההפסקה' : 'בלי עישון'}</span></div><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi></button>
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num${String(cigs ?? '').length > 3 ? ' long' : ''}" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num${life.n.length > 4 ? ' long' : ''}" data-roll="life">${life.n}</bdi><div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
+        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
+        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="life">${life.n}</bdi><div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
       </div>
       ${slipLine}
       ${healthLine}
@@ -462,14 +494,14 @@ function pocket() {
     ? `<button class="gcard" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gmid"><span class="gname">${esc(st.settings.goalName || 'יעד חיסכון')}</span>${goalBar(progress.ratio)}<span class="gsub">${shekelHtml(Math.floor(progress.saved), 0)} מתוך ${shekelHtml(progress.price, 0)}</span></span><bdi dir="ltr" class="gpct">${Math.round(progress.ratio * 100)}%</bdi></button>`
     : `<button class="gcard empty" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gname">בחרו יעד חיסכון</span></button>`;
   return `<div class="screen money-screen">
-    <header class="pk-hero">
-      ${pocketStage()}
-      <h1 class="pk-title">הכיס</h1>
-      <div class="pk-money">
-        ${moneyCluster(parts.whole, parts.agorot)}
-        <p class="pk-hour">נשארו בכיס · <span class="hot">עוד <bdi dir="ltr"><span data-live="hour">${hourText(day)}</span><span class="shekel">₪</span></bdi> בכל שעה</span></p>
-      </div>
-    </header>
+    ${hero({
+      art: pocketStage(),
+      title: 'הכיס',
+      sub: 'מה שחזר אליך',
+      action: `<button class="iconbtn hero-act" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 18)}</button>`,
+      fig: moneyCluster(parts.whole, parts.agorot),
+      cap: `נשארו בכיס · <span class="hot">עוד <bdi dir="ltr"><span data-live="hour">${hourText(day)}</span> <span class="shekel">₪</span></bdi> בכל שעה</span>`,
+    })}
     <p class="facts"><bdi dir="ltr" class="n" data-roll="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו • <bdi dir="ltr" class="n" data-live="pouches">${nf(units.n, 1)}</bdi> ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'}</p>
     <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span><bdi dir="ltr" class="amt"><span data-live="rate${i}">${rateText(n)}</span><span class="shekel">₪</span></bdi></div>`).join('')}</div>
     <div class="pk-block">
@@ -582,9 +614,17 @@ function health() {
   const fold = done.length
     ? `<button class="fold" data-act="hpast">${hidden ? `הצגת ${done.length} שלבים שהושגו` : 'הסתרת שלבים שהושגו'}</button>`
     : '';
+  const dark = theme() === 'dark';
+  const days = q ? Math.floor(elapsed / DAY) : 0;
   return `<div class="screen health">
-    <div class="appbar"><div class="ttl">הגוף מתאושש</div><div class="eyebrow" style="text-align:end">${sum.doneCount} מתוך ${sum.total}<br>שלבים</div></div>
-    <p class="lead" style="padding:4px var(--gutter) 0">מה קורה בגוף מאז הסיגריה האחרונה. הערכות כלליות, לא ייעוץ רפואי.</p>
+    ${hero({
+      art: landscape({ src: 'art/spots/spot-lungs.webp', x: 435, y: 330, w: 300 }, dark, days),
+      title: 'הגוף',
+      sub: 'הערכה כללית',
+      action: `<button class="iconbtn hero-act" data-act="info" aria-label="מאיפה המידע">${icon('info', 18)}</button>`,
+      fig: plainFig(sum.doneCount),
+      cap: `שלבי החלמה שהגוף כבר עבר, מתוך ${sum.total}`,
+    })}
     ${slipNote}<div class="sum"><div class="eyebrow">מה קורה בגוף עכשיו</div>
       <div class="h2" style="font-size:16px;margin-top:6px">${next ? esc(next.title) : latest ? esc(latest.title) : 'המונה עוד לא התחיל.'}</div>
       ${next ? `<div class="small" style="margin-top:6px">התחנה הבאה · ${esc(next.when)}${next.cont && kept.length ? ' מהמעידה' : ''} · בעוד ${fmtDur(Math.max(0, next.at - next.e), 1)}</div><div class="pb" style="margin-top:10px"><i style="width:${Math.round((next.pct || 0) * 100)}%"></i></div>` : `<div class="small" style="margin-top:6px">כל התחנות שבמאגר כבר מאחור.</div>`}
@@ -700,7 +740,15 @@ function journal() {
   const streak = checkinStreak(st, t);
   const moods = [1, 2, 3, 4, 5].map((k) => `<button class="md ${ui.checkinMood === k ? 'on' : ''}" data-act="mood" data-m="${k}" aria-label="מצב רוח ${k}">${icon('mood-' + k, 30, 'currentColor', 1.5)}</button>`).join('');
   const why = st.seenJournalWhy ? '' : `<div class="sum" style="margin-bottom:8px"><div class="h2" style="font-size:16px">למה יומן</div><p class="small" style="margin-top:6px">רישום חשק מראה שהוא נחלש ומתקצר. כל רישום מחזיר תובנה, לא רשימת מטלות.</p><button class="btn text" data-act="why-ok">הבנתי</button></div>`;
-  return `<div class="screen"><div class="appbar"><div class="ttl">יומן</div><div class="seg"><button data-act="jtab" data-tab="today" class="${tab === 'today' ? 'on' : ''}">היום</button><button data-act="jtab" data-tab="history" class="${tab === 'history' ? 'on' : ''}">היסטוריה</button></div></div>
+  const dark = theme() === 'dark';
+  const days = st.settings.quitAt ? Math.floor((t - st.settings.quitAt) / DAY) : 0;
+  return `<div class="screen">${hero({
+      art: landscape({ src: 'art/spots/spot-journal.webp', x: 435, y: 330, w: 300 }, dark, days),
+      title: 'יומן',
+      sub: 'רשומות ותובנות',
+      fig: plainFig(streak),
+      cap: 'ימים ברצף של צ׳ק-אין',
+    })}<div class="jbar"><div class="seg"><button data-act="jtab" data-tab="today" class="${tab === 'today' ? 'on' : ''}">היום</button><button data-act="jtab" data-tab="history" class="${tab === 'history' ? 'on' : ''}">היסטוריה</button></div></div>
     <div class="pad">${why}${tab === 'today' ? journalToday(t, streak, moods) : journalHistory()}</div></div>`;
 }
 
@@ -1156,8 +1204,9 @@ export function livePatch() {
   });
   for (const el of document.querySelectorAll('[data-live]')) {
     const next = rolls[el.dataset.live];
-    if (next == null || el.children.length) continue;
-    if (el.textContent !== next) el.textContent = next;
+    if (next == null) continue;
+    if (/[0-9]/.test(next)) rollInto(el, next);
+    else if (!el.children.length && el.textContent !== next) el.textContent = next;
   }
   maybeCoin(money);
 }
