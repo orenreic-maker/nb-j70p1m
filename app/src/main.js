@@ -536,6 +536,27 @@ const actions = {
   'sos-slip'() { stopSos(); ui.route = 'home'; openSlipSheet('home'); },
   breaths() { ui.breathFrom = ui.route === 'settings' ? 'settings' : 'sos'; ui.overlay = 'breaths'; render(); },
   info() { ui.overlay = 'about'; render(); },
+  'crave-n'(el) {
+    const row = el.closest('[data-snap]');
+    if (!row) return;
+    const n = el.dataset.v;
+    row.dataset.value = n;
+    row.querySelectorAll('button').forEach((b) => {
+      const on = b === el;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    if (row.dataset.snap === 'crave') {
+      const label = document.getElementById('craveV');
+      if (label) label.textContent = `${n} מתוך 10`;
+    }
+    if (row.dataset.snap === 'logint') {
+      const label = document.getElementById('logintV');
+      if (label) label.textContent = `${n}/10`;
+      const entry = st.cravings.find((c) => c.id === ui.insightId);
+      if (entry) entry.intensity = +n;
+    }
+  },
   'breath-pick'(el) {
     st.settings.breathId = el.dataset.id;
     ui.overlay = null;
