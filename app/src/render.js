@@ -816,18 +816,21 @@ function journalHistory() {
     const nDays = q ? Math.max(1, Math.floor((t - q) / DAY) + 1) : 0;
     const day0 = new Date(q || t);
     day0.setHours(0, 0, 0, 0);
+    const showLabels = nDays > 0 && nDays <= 8;
+    const dense = nDays > 24;
     const dots = [];
-    for (let i = 0; i < Math.min(nDays, 14); i++) {
-      const d0 = day0.getTime() + (nDays > 14 ? nDays - 14 + i : i) * DAY;
+    for (let i = 0; i < nDays; i++) {
+      const d0 = day0.getTime() + i * DAY;
       const has = sl.some((x) => x.t >= d0 && x.t < d0 + DAY);
       const d = new Date(d0);
-      dots.push(`<span class="dd ${has ? 'on' : ''}"><i></i><em>${d.getDate()}.${d.getMonth() + 1}</em></span>`);
+      const label = showLabels ? `<em>${d.getDate()}.${d.getMonth() + 1}</em>` : '';
+      dots.push(`<span class="dd ${has ? 'on' : ''}"><i></i>${label}</span>`);
     }
     const clean = nDays - new Set(sl.map((x) => new Date(x.t).toDateString())).size;
     head = `<button class="slip-add" data-act="slip-add">${icon('plus', 18, 'var(--c-ink)')}<span>רישום מעידה</span></button>
       <div class="sum slsum"><div class="eyebrow">מאז ההפסקה</div>
       <div class="h2" style="font-size:16px;margin-top:6px">${Math.max(0, clean)} מתוך ${nDays} ימים בלי אף סיגריה</div>
-      <div class="ddrow">${dots.join('')}</div>
+      <div class="ddrow${dense ? ' dense' : ''}">${dots.join('')}</div>
       <div class="led"><div><div class="v">${sl.length}</div><div class="k">מעידות</div></div><div><div class="v">${cigs}</div><div class="k">סיגריות</div></div><div><div class="v">${moneyFig(cigs * ppcOf(st.settings), 2)}</div><div class="k">ירד מהחיסכון</div></div></div>
       <div class="small" style="margin-top:10px">מעידה לא מוחקת ימים. היא עוזרת לראות מתי ולמה זה קורה.</div></div>`;
   }
