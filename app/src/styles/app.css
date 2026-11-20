@@ -33,8 +33,8 @@ html:not([data-theme="dark"]) .wl-art.dusk,[data-theme="dark"] .wl-art.day{displ
 .wl-points .t{font:600 14px/1.2 var(--f-text);color:var(--c-ink);margin-top:4px}
 .wl-points .d{font:400 12px/1.35 var(--f-text);color:var(--c-ink-2)}
 .wl-points .line{white-space:nowrap}
-.wl-points .amt{font:700 25px/1 var(--f-display);color:var(--c-clay);letter-spacing:0;white-space:nowrap}
-.wl-points .amt .shekel{font:500 .72em/1 var(--f-text);color:var(--c-clay);margin-inline-start:4px}
+.wl-points .amt{font:700 25px/1 var(--f-display);color:var(--c-clay);letter-spacing:0;white-space:nowrap;--nl-hang:.72em}
+.wl-points .amt .nl-unit,.wl-points .amt .shekel{font:500 var(--nl-hang)/1 var(--f-text);color:var(--c-clay);margin:0}
 .wl-cta{margin-top:20px;width:100%;height:56px;border-radius:999px;background:#2F3A2B;color:#F6EFE3;font:600 17px/1 var(--f-text);display:flex;align-items:center;justify-content:center;text-align:center}
 [data-theme="dark"] .wl-cta{background:#EBA96A;color:#151B17}
 .wl-import{margin:14px 0 0;font:500 13.5px/1.3 var(--f-text);color:var(--c-ink-2);text-align:center}
@@ -106,23 +106,35 @@ html.reduce .living .ly img,html.scene-off .living .ly img{animation:none}
 .medal.lock .spot,.medal.next .spot{opacity:.45}
 .home-hero .brandrow{position:absolute;top:calc(8px + var(--sat, env(safe-area-inset-top)));left:0;right:0;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:0 var(--gutter)}
 .pocket{position:absolute;left:0;right:0;bottom:2px;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0;width:auto}
-.hero-fig .fig,.pocket .fig,.pk-money .fig,.pk-grow{display:flex;justify-content:center;width:100%}
-.hero-fig .anchor,.pocket .anchor,.pk-money .anchor,.pk-grow .anchor{position:relative;display:inline-flex;align-items:baseline;max-width:100%}
-.hero-fig .main,.pocket .main,.pk-money .main,.pk-grow .main{display:inline-flex;align-items:flex-end;letter-spacing:0}
-.pocket .main>*,.pk-money .main>*,.pk-grow .main>*,.hero-fig .main>*{margin:0}
-.pocket .tails,.pk-money .tails,.pk-grow .tails,.hero-fig .tails{flex:0 0 0px;width:0;min-width:0;overflow:visible;white-space:nowrap;display:inline-flex;align-items:baseline}
-.hero-fig .main,.pocket .main,.pk-money .main{font:600 58px/1 var(--f-display);letter-spacing:-.01em}
-.hero-fig .agorot,.pocket .agorot,.pk-money .agorot{font:500 24px/1 var(--f-text);color:var(--c-ink-2);letter-spacing:0;margin-inline-start:6px}
-.hero-fig .shekel,.pocket .shekel,.pk-money .shekel{font:500 24px/1 var(--f-text);margin-inline-start:6px}
-.hero-fig .sideword{position:absolute;right:calc(100% + 10px);bottom:0;direction:rtl;unicode-bidi:isolate;font:600 18px/1 var(--f-text);color:var(--c-ink-2);white-space:nowrap;pointer-events:none}
+.hero-fig .fig,.pocket .fig,.pk-money .fig,.pk-grow,.fig{display:flex;justify-content:center;width:100%}
+/* Number line. See numline.js for the baseline rule. Parts share one baseline.
+   Hanging parts are zero-width so they cannot move a centered integer. */
+.nl{align-items:baseline;max-width:100%;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+.nl-hero,.nl-grow,.nl-meter{display:inline-grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:baseline;width:100%}
+.nl-hero{--nl-int:58px;--nl-hang:24px}
+.nl-grow{--nl-int:64px;--nl-hang:27px}
+.nl-meter{--nl-int:38px;--nl-hang:16px}
+.nl.clk{--nl-int:16px}
+.nl-int{grid-column:2;display:inline-flex;align-items:baseline;justify-self:center;font:600 var(--nl-int)/1 var(--f-display);letter-spacing:-.01em}
+.nl.clk .nl-int{font-weight:500;font-family:var(--f-text)}
+.nl-dec,.nl-unit,.nl-side{font:500 var(--nl-hang)/1 var(--f-text)}
+.nl-dec,.nl-side{color:var(--c-ink-2)}
+.nl-side{grid-column:1;justify-self:end;direction:rtl;unicode-bidi:isolate;padding-inline-end:8px}
+.nl-tail{grid-column:3;justify-self:start;display:inline-flex;align-items:baseline;gap:4px;padding-inline-start:6px}
+.nl-inline,.nl-chip{font:inherit;--nl-hang:1em}
+.nl-inline .nl-int,.nl-inline [data-part="int"],.nl-chip [data-part="int"]{font:inherit;letter-spacing:0}
+.nl-fig{display:inline-flex;align-items:baseline}
+.nl .nl-unit,.nl .shekel{margin:0}
 .inline-num{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1,"lnum" 1;vertical-align:baseline}
 .pocket .k{width:100%;text-align:center}
 [data-roll]{white-space:nowrap}
 .meters .num,.meters .clk{display:block}
 .pocket .k{font:500 13px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:2px}
-.dg,.dg.flat{display:inline-block;width:var(--dgw,.64em);height:1em;line-height:1;overflow:hidden;vertical-align:bottom;text-align:center;font:inherit}
-.dg .strip{display:block;transition:transform .5s cubic-bezier(.2,.85,.2,1)}
-.dg .strip span{display:block;width:100%;height:1em;text-align:center}
+.dg,.dg.flat{position:relative;display:inline-block;width:var(--dgw,.64em);height:1em;line-height:1;overflow:visible;vertical-align:baseline;text-align:center;font:inherit}
+.dg:before{content:"0";visibility:hidden}
+.dg-clip{position:absolute;inset:0;overflow:hidden}
+.dg .strip{position:absolute;left:0;right:0;top:0;display:block;transition:transform .5s cubic-bezier(.2,.85,.2,1)}
+.dg .strip span{display:block;width:100%;height:1em;line-height:1;text-align:center}
 html.reduce .dg .strip{transition:none}
 .pch{display:inline-block;line-height:1;font:inherit}
 .home-body{flex:1;display:flex;flex-direction:column;padding:8px var(--gutter) calc(90px + env(safe-area-inset-bottom))}
@@ -130,8 +142,8 @@ html.reduce .dg .strip{transition:none}
 .meters{display:flex;align-items:flex-start;margin-top:10px;width:100%}
 .meters .m{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:16px 4px 18px;position:relative}
 .meters .m+.m:before{content:"";position:absolute;inset-inline-start:0;top:18px;bottom:18px;width:1px;background:var(--c-line)}
-.meters .num{display:flex;align-items:flex-end;justify-content:center;height:42px;font:600 38px/1 var(--f-display);letter-spacing:-.01em}
-.meters .clk{font:500 16px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:4px}
+.meters .num{display:inline-grid;align-items:baseline;justify-content:center;height:42px;font:600 38px/1 var(--f-display);letter-spacing:-.01em}
+.meters .clk{display:inline-grid;font:500 16px/1 var(--f-text);font-variant-numeric:tabular-nums;margin-top:4px}
 .meters .u{display:flex;flex-direction:column;align-items:center;font:400 12px/1.25 var(--f-text);color:var(--c-ink-2);margin-top:6px;min-height:2.5em}
 .slim{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-top:1px solid var(--c-line);text-align:start}
 .slim .col{flex:1;min-width:0}
@@ -262,8 +274,7 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
 @keyframes pk-coin{0%{transform:translateY(-60px);opacity:0}30%{opacity:1}100%{transform:translateY(10px);opacity:0}}
 .pk-title{position:absolute;top:calc(52px + var(--sat, env(safe-area-inset-top)));right:var(--gutter);z-index:3;margin:0;font:700 40px/1 var(--f-display);letter-spacing:0}
 .pk-money{position:absolute;left:0;right:0;bottom:4px;z-index:3;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0}
-.pk-money .anchor{align-items:flex-end}
-.pk-money .tails{align-items:flex-end}
+.pk-money .anchor,.pk-money .tails{align-items:baseline}
 .pk-money .main{font:600 58px/1 var(--f-display)}
 .pk-money .agorot{font:500 28px/1 var(--f-text);color:var(--c-ink-2);letter-spacing:0;margin-inline-start:1px}
 .pk-money .shekel{font:500 30px/1 var(--f-text);margin-inline-start:6px}
@@ -271,13 +282,15 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
 .pk-hour .hot{color:var(--c-hill)}
 .pk-hour .shekel{font:500 13px/1 var(--f-text);margin-inline-start:2px}
 .facts{margin:14px var(--gutter) 0;text-align:center;font:400 13px/1.4 var(--f-text);color:var(--c-ink-2)}
-.facts .n{font:600 22px/1 var(--f-display);color:var(--c-ink);letter-spacing:0}
+.facts .fact{font:inherit}
+.facts .fact [data-part="int"]{font:600 22px/1 var(--f-display);color:var(--c-ink);letter-spacing:0}
 .rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:16px;border-top:1px solid var(--c-line);border-bottom:1px solid var(--c-line)}
 .rates .cell{min-width:0;padding:10px 2px 12px;text-align:center}
 .rates .cell+.cell{border-inline-start:1px solid var(--c-line)}
 .rates .lbl{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);margin-bottom:4px}
 .rates .amt{display:flex;justify-content:center;align-items:baseline;white-space:nowrap;font:600 22px/1 var(--f-display);letter-spacing:0}
-.rates .shekel{font-size:.62em;font-weight:500;margin-inline-start:1px;letter-spacing:0}
+.rates .amt{--nl-hang:.62em}
+.rates .nl-unit{font-weight:500;letter-spacing:0}
 .pk-block{padding:0 var(--gutter)}
 .pk-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:18px 0 10px}
 .pk-hd h2{margin:0;font:600 17px/1.3 var(--f-text)}
@@ -314,9 +327,7 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
 .wstat .ok{width:30px;height:30px;border-radius:50%;background:var(--c-hill);color:var(--c-bg);display:grid;place-items:center}
 .grow-wrap{display:block;width:100%}
 /* One size for 5, 10 and 20 years. 64px fits 7 digits, commas, and the hanging shekel at 375. */
-.grow-wrap .pk-grow{align-items:flex-end;height:64px;font:700 64px/1 var(--f-display);animation:pk-fade .28s var(--ease-out)}
-.grow-wrap .pk-grow .main{font-size:64px;line-height:1;height:64px}
-.grow-wrap .pk-grow .shekel{font:500 27px/1 var(--f-text);margin-inline-start:6px;letter-spacing:0}
+.grow-wrap .pk-grow{align-items:baseline;justify-content:center;height:64px;font:700 64px/1 var(--f-display);animation:pk-fade .28s var(--ease-out)}
 .grow-cap{margin:4px 0 12px;font:400 13px/1.35 var(--f-text);color:var(--c-ink-2)}
 .plants{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px}
 .plant{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:180px;padding:8px 4px 10px;border:1px solid transparent;border-radius:16px;background:transparent;color:inherit}
@@ -327,7 +338,8 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
 .plant .v,
 .plant .v [data-live]{
   margin-top:2px;
-  display:inline;
+  display:inline-flex;
+  align-items:baseline;
   font-family:var(--f-text);
   font-weight:700;
   font-style:normal;
@@ -342,7 +354,7 @@ html.reduce .pk-stage .ly,html.reduce .pk-stage .coin{animation:none}
   white-space:nowrap;
 }
 .plant .v [data-live]{margin-top:0}
-.plant .v .shekel{
+.plant .v .nl-unit,.plant .v .shekel{
   font-family:var(--f-text);
   font-weight:500;
   font-style:normal;

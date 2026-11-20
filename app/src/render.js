@@ -20,6 +20,7 @@ import { showPlaceholder } from './ads.js';
 import { priceLabel } from './purchases.js';
 import { isNative } from './native.js';
 import { APP } from './config.js';
+import { numLine } from './numline.js';
 
 const $app = () => document.getElementById('app');
 
@@ -31,10 +32,8 @@ export function theme() {
 
 /** Currency mark stays outside the ticking digits so a live update cannot erase it. */
 function moneyFig(amount, digits = 0, live = '') {
-  if (amount == null || !Number.isFinite(amount)) return '<span class="ils">—</span>';
-  const n = nf(amount, digits);
-  const num = live ? `<span data-live="${live}">${n}</span>` : n;
-  return `<span class="ils"><bdi dir="ltr">${num}<span class="shekel"> ₪</span></bdi></span>`;
+  if (amount == null || !Number.isFinite(amount)) return numLine({ kind: 'inline', int: '—', cls: 'ils' });
+  return numLine({ kind: 'inline', int: nf(amount, digits), unit: '₪', live, cls: 'ils' });
 }
 function shekelHtml(n, d = 0) { return moneyFig(n, d); }
 
@@ -158,10 +157,13 @@ function rollInto(node, str) {
       }
       const d = document.createElement('span');
       d.className = 'dg';
+      const clip = document.createElement('span');
+      clip.className = 'dg-clip';
       const s = document.createElement('span');
       s.className = 'strip';
       s.innerHTML = '0123456789'.split('').map((n) => `<span>${n}</span>`).join('');
-      d.appendChild(s);
+      clip.appendChild(s);
+      d.appendChild(clip);
       node.appendChild(d);
       return s;
     });
@@ -215,11 +217,9 @@ function moneySplit(amount) {
   return { whole: s.slice(0, i), agorot: s.slice(i) };
 }
 
-/** The integer is the only in-flow box. Shekel and agorot hang off its trailing side. One size for every length.
- *  `side` hangs off the leading side (physical left) and does not move the axis. */
+/** Big money. The integer is the only in-flow box. Decimals, ₪, and the side word hang at the decimal size, on the integer's baseline. */
 function moneyCluster(whole, agorot, side = '') {
-  const word = side ? `<span class="sideword">${side}</span>` : '';
-  return `<div class="fig num-ltr"><span class="anchor">${word}<bdi dir="ltr" class="main" data-roll="money">${whole}</bdi><span class="tails"><bdi dir="ltr" class="agorot" data-roll="agorot">${agorot}</bdi><span class="shekel">₪</span></span></span></div>`;
+  return `<div class="fig">${numLine({ kind: 'hero', int: whole, dec: agorot, unit: '₪', side, roll: 'money', rollDec: 'agorot', axis: 'screen' })}</div>`;
 }
 
 function lifeParts(minutes) {
@@ -307,7 +307,7 @@ function hero({ art, title, sub = '', action = '', fig = '', cap = '' }) {
 }
 
 function plainFig(n) {
-  return `<div class="fig num-ltr"><span class="anchor"><bdi dir="ltr" class="main">${n}</bdi><span class="tails"></span></span></div>`;
+  return `<div class="fig">${numLine({ kind: 'hero', int: n, axis: 'screen' })}</div>`;
 }
 
 function landscape(center, dark, days) {
@@ -360,9 +360,9 @@ function home() {
     })}
     <div class="home-body">
       <div class="meters">
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="days">${days}</bdi><div class="u"><span data-live="daysa">${dayA}</span><span>${kept.length ? 'מאז ההפסקה' : 'בלי עישון'}</span></div><bdi dir="ltr" class="clk" data-roll="clock">${q ? fmtClock(elapsed % DAY) : '00:00:00'}</bdi></button>
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="cigs">${cigs == null ? '—' : nf(cigs, 0)}</bdi><div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
-        <button class="m" data-act="go" data-go="pocket"><bdi dir="ltr" class="num" data-roll="life">${life.n}</bdi><div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
+        <button class="m" data-act="go" data-go="pocket">${numLine({ kind: 'meter', int: String(days), roll: 'days', axis: 'box', cls: 'num' })}<div class="u"><span data-live="daysa">${dayA}</span><span>${kept.length ? 'מאז ההפסקה' : 'בלי עישון'}</span></div>${numLine({ kind: 'meter', int: q ? fmtClock(elapsed % DAY) : '00:00:00', roll: 'clock', axis: 'box', cls: 'clk' })}</button>
+        <button class="m" data-act="go" data-go="pocket">${numLine({ kind: 'meter', int: cigs == null ? '—' : nf(cigs, 0), roll: 'cigs', axis: 'box', cls: 'num' })}<div class="u"><span data-live="ciga">${cigA}</span><span>שלא עישנת</span></div></button>
+        <button class="m" data-act="go" data-go="pocket">${numLine({ kind: 'meter', int: life.n, roll: 'life', axis: 'box', cls: 'num' })}<div class="u"><span data-live="lifea">${life.a}</span><span data-live="lifeb">${life.b}</span></div></button>
       </div>
       ${slipLine}
       ${healthLine}
@@ -503,10 +503,10 @@ function pocket() {
       sub: 'מה שחזר אליך',
       action: `<button class="iconbtn hero-act" data-act="go" data-go="share" aria-label="שיתוף">${icon('share', 18)}</button>`,
       fig: moneyCluster(parts.whole, parts.agorot, 'נחסכו'),
-      cap: `חיסכון של <bdi dir="ltr"><span class="inline-num" data-live="hour">${hourText(day)}</span> ₪</bdi> כל שעה`,
+      cap: numLine({ kind: 'inline', wordsBefore: 'חיסכון של ', int: hourText(day), unit: '₪', wordsAfter: ' כל שעה', live: 'hour' }),
     })}
-    <p class="facts"><bdi dir="ltr" class="n inline-num" data-live="cigs">${nf(cigs, 0)}</bdi> סיגריות שלא נדלקו • <bdi dir="ltr" class="n inline-num" data-live="pouches">${nf(units.n, 1)}</bdi> ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'}</p>
-    <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span><bdi dir="ltr" class="amt"><span class="inline-num" data-live="rate${i}">${rateText(n)}</span><span class="shekel">₪</span></bdi></div>`).join('')}</div>
+    <p class="facts">${numLine({ kind: 'inline', int: nf(cigs, 0), wordsAfter: ' סיגריות שלא נדלקו', live: 'cigs', cls: 'fact' })}<span class="fact-dot"> · </span>${numLine({ kind: 'inline', int: nf(units.n, 1), wordsAfter: ` ${units.label === 'קופסאות' ? 'קופסאות' : 'שקיות טבק'} שלא עישנת`, live: 'pouches', cls: 'fact' })}</p>
+    <div class="rates">${rates.map(([label, n], i) => `<div class="cell"><span class="lbl">${label}</span>${numLine({ kind: 'inline', int: rateText(n), unit: '₪', live: `rate${i}`, cls: 'amt' })}</div>`).join('')}</div>
     <div class="pk-block">
       <div class="pk-hd"><h2>הישגי כיס</h2><div class="aside">${earned} מתוך ${moneyAch.length} · <button data-act="go" data-go="badges">כל ההישגים</button></div></div>
       <div class="pk-medals">${moneyAch.map((a) => {
@@ -525,15 +525,15 @@ function pocket() {
           : `${shekelHtml(w.price, 0)} · עוד ${shekelHtml(Math.max(0, w.price - saved), 0)}`;
         const stat = reached
           ? `<span class="ok" aria-label="הושג"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>`
-          : `<bdi dir="ltr">${Math.round(p * 100)}%</bdi>`;
+          : numLine({ kind: 'inline', int: `${Math.round(p * 100)}%` });
         return `<div class="wrow"><div class="wring">${arcRing(64, p, reached)}${pocketSpot(w.art, 50)}</div><div class="wmeta"><div class="t">${w.name}</div><div class="s${reached ? ' got' : ''}">${sub}</div></div><div class="wstat">${stat}</div></div>`;
       }).join('')}
       <div class="pk-hd"><h2>אם זה היה מושקע</h2></div>
-      <div class="grow-wrap"><div class="pk-grow num-ltr"><span class="anchor"><bdi dir="ltr" class="main" data-roll="proj">${projText}</bdi><span class="tails"><span class="shekel">₪</span></span></span></div></div>
+      <div class="grow-wrap"><div class="pk-grow">${numLine({ kind: 'grow', int: projText, unit: '₪', roll: 'proj', axis: 'screen' })}</div></div>
       <p class="grow-cap">בעוד ${horizon} שנים, אם כל חודש נכנס למדד רחב</p>
       <div class="plants">${plants.map(([y, art, h]) => {
         const v = futureValue(saved, monthly, GROWTH_RATE, y);
-        return `<button class="plant${y === horizon ? ' on' : ''}" data-act="horizon" data-y="${y}"><img alt="" src="art/pocket/spots/${art}.webp" style="height:${h}px"><span class="y">${y} שנים</span><span class="v"><bdi dir="ltr"><span class="inline-num" data-live="fv${y}">${nf(v, 0)}</span><span class="shekel">₪</span></bdi></span></button>`;
+        return `<button class="plant${y === horizon ? ' on' : ''}" data-act="horizon" data-y="${y}"><img alt="" src="art/pocket/spots/${art}.webp" style="height:${h}px"><span class="y">${y} שנים</span>${numLine({ kind: 'inline', int: nf(v, 0), unit: '₪', live: `fv${y}`, cls: 'v' })}</button>`;
       }).join('')}</div>
       <p class="note">בהנחת תשואה של כ-7% בשנה, הממוצע ההיסטורי של מדדים רחבים. להמחשה בלבד, לא ייעוץ השקעות.</p>
     </div>
@@ -1004,7 +1004,7 @@ function obWelcome() {
     </div>
     <div class="wl-bottom">
       <div class="wl-points">
-        <div class="cell">${spot('jar', 54)}<div class="t">הכיס</div><div class="d"><div class="line"><bdi dir="ltr" class="amt"><span data-tease>0</span><span class="shekel">₪</span></bdi> בשנה</div><div>על קופסה ביום</div></div></div>
+        <div class="cell">${spot('jar', 54)}<div class="t">הכיס</div><div class="d"><div class="line">${numLine({ kind: 'inline', int: '0', unit: '₪', tease: true, wordsAfter: ' בשנה', cls: 'amt' })}</div><div>על קופסה ביום</div></div></div>
         <div class="cell">${spot('lungs', 54)}<div class="t">הגוף</div><div class="d">ציר החלמה,<br>שלב אחרי שלב</div></div>
         <div class="cell">${spot('breath', 54)}<div class="t">רגע קשה</div><div class="d">נשימה מודרכת<br>עד שהגל עובר</div></div>
       </div>
@@ -1297,7 +1297,7 @@ function daySnap(id, value) {
   const opts = Array.from({ length: 10 }, (_, i) => {
     const n = i + 1;
     const on = n === v;
-    return `<button type="button" data-act="crave-n" data-v="${n}" role="radio" aria-checked="${on ? 'true' : 'false'}" class="${on ? 'on' : ''}" aria-label="${n} מתוך 10"><span>${n}</span></button>`;
+    return `<button type="button" data-act="crave-n" data-v="${n}" role="radio" aria-checked="${on ? 'true' : 'false'}" class="${on ? 'on' : ''}" aria-label="${n} מתוך 10" data-numline="chip" data-axis="self"><span data-part="int">${n}</span></button>`;
   }).join('');
   return `<div class="crave-row" dir="rtl" role="radiogroup" aria-label="עוצמת החשק" data-snap="${id}" data-value="${v}">${opts}</div>`;
 }
