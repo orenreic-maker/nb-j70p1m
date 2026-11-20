@@ -53,6 +53,7 @@ export const ui = {
   breathMenu: false,
   breathFrom: 'sos',
   shotPhase: null,
+  legalFrom: null,
 };
 
 export function bump() { ui.rev += 1; }

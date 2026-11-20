@@ -2,6 +2,7 @@
   "appId": "com.orenreic.breathanew",
   "appName": "BreathAnew",
   "webDir": "dist",
+  "backgroundColor": "#F6EFE3",
   "android": {
     "allowMixedContent": false
   },
