@@ -106,7 +106,6 @@ export function render() {
   else stopWelcomeTease();
   if (ui.route === 'onboard') bindOnboard();
   if (ui.route === 'breathedit') bindPhaseDrag();
-  bindDaySnaps();
 }
 
 /** Widest Fredoka digit, as an em, so a ticking 1 and an 8 take the same box. */
@@ -1242,86 +1241,13 @@ function goalBar(ratio) {
 }
 
 function daySnap(id, value) {
-  const v = Math.max(0, Math.min(10, Math.round(+value || 0)));
-  const opts = Array.from({ length: 11 }, (_, n) => `<button type="button" data-v="${n}" role="radio" aria-checked="${n === v ? 'true' : 'false'}" class="${n === v ? 'on' : ''}" aria-label="${n} מתוך 10">${n}</button>`).join('');
-  return `<div class="daysnap" dir="rtl" role="radiogroup" aria-label="עוצמת החשק" data-snap="${id}" data-value="${v}"><span class="pad" aria-hidden="true"></span>${opts}<span class="pad" aria-hidden="true"></span></div>`;
-}
-
-function bindDaySnaps() {
-  document.querySelectorAll('[data-snap]').forEach((scroller) => {
-    if (scroller.dataset.bound) return;
-    scroller.dataset.bound = '1';
-    const buttons = [...scroller.querySelectorAll('button[data-v]')];
-    const center = (el, smooth) => {
-      const screen = scroller.closest('.screen');
-      const top = screen ? screen.scrollTop : 0;
-      el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
-      if (screen) screen.scrollTop = top;
-    };
-    const nearest = () => {
-      const box = scroller.getBoundingClientRect();
-      const mid = box.left + box.width / 2;
-      let best = buttons[0];
-      let bestD = Infinity;
-      for (const b of buttons) {
-        const r = b.getBoundingClientRect();
-        const d = Math.abs(r.left + r.width / 2 - mid);
-        if (d < bestD) { best = b; bestD = d; }
-      }
-      return best;
-    };
-    const apply = (btn, fromUser) => {
-      if (!btn) return;
-      scroller.dataset.value = btn.dataset.v;
-      for (const b of buttons) {
-        const on = b === btn;
-        b.classList.toggle('on', on);
-        b.setAttribute('aria-checked', on ? 'true' : 'false');
-      }
-      const n = btn.dataset.v;
-      if (scroller.dataset.snap === 'crave') {
-        const label = document.getElementById('craveV');
-        if (label) label.textContent = `${n} מתוך 10`;
-      }
-      if (scroller.dataset.snap === 'logint') {
-        const label = document.getElementById('logintV');
-        if (label) label.textContent = `${n}/10`;
-        if (fromUser) {
-          const entry = st.cravings.find((c) => c.id === ui.insightId);
-          if (entry) entry.intensity = +n;
-        }
-      }
-    };
-    const current = buttons.find((b) => b.dataset.v === scroller.dataset.value) || buttons[0];
-    if (current) center(current, false);
-    let timer = 0;
-    let user = false;
-    let dragged = false;
-    const finish = () => {
-      if (!user) return;
-      apply(nearest(), true);
-    };
-    scroller.addEventListener('pointerdown', () => { user = true; dragged = false; }, { passive: true });
-    scroller.addEventListener('scroll', () => {
-      if (!user) return;
-      dragged = true;
-      clearTimeout(timer);
-      timer = setTimeout(finish, 120);
-    }, { passive: true });
-    scroller.addEventListener('scrollend', () => {
-      if (!user) return;
-      clearTimeout(timer);
-      finish();
-    });
-    scroller.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-v]');
-      if (!btn || !scroller.contains(btn)) return;
-      if (dragged) return;
-      user = true;
-      apply(btn, true);
-      center(btn, true);
-    });
-  });
+  const v = Math.min(10, Math.max(1, Math.round(+value || 1)));
+  const opts = Array.from({ length: 10 }, (_, i) => {
+    const n = i + 1;
+    const on = n === v;
+    return `<button type="button" data-act="crave-n" data-v="${n}" role="radio" aria-checked="${on ? 'true' : 'false'}" class="${on ? 'on' : ''}" aria-label="${n} מתוך 10"><span>${n}</span></button>`;
+  }).join('');
+  return `<div class="crave-row" dir="rtl" role="radiogroup" aria-label="עוצמת החשק" data-snap="${id}" data-value="${v}">${opts}</div>`;
 }
 
 const KCOL = { in: 'var(--c-hill)', hold: 'var(--c-apricot)', out: 'var(--c-sage)', empty: 'var(--c-clay)' };
