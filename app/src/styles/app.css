@@ -4,7 +4,7 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 button.choice,button.row{width:100%}
 input,textarea{border:0;outline:none;background:transparent;width:100%;font:500 17px/1.3 var(--f-text)}
 textarea{resize:none}
-.screen{position:absolute;inset:0;overflow:auto;background:var(--c-bg);display:flex;flex-direction:column;padding-top:0}
+.screen{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;background:var(--c-bg);display:flex;flex-direction:column;padding-top:0}
 .wordmark{display:inline-flex;align-items:center;gap:8px;flex-direction:row-reverse}
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:calc(10px + env(safe-area-inset-top)) var(--gutter) 0}
 nav.tab{height:calc(74px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom)}
@@ -162,8 +162,8 @@ html.reduce .dg .strip{transition:none}
 .split b{display:block;font:500 15px/1 var(--f-text);white-space:nowrap}
 .split small{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);font-weight:400;margin-top:3px;white-space:nowrap}
 .split .unit{display:inline;font-size:13px;margin-inline-start:2px}
-.wbars{display:flex;align-items:flex-end;gap:5px;height:28px;margin-top:6px}
-.wbars i{flex:1;border-radius:2px;background:var(--c-line);min-height:4px}
+.wbars{display:flex;align-items:flex-end;gap:5px;height:28px;margin-top:6px;width:100%;min-width:0;overflow:hidden}
+.wbars i{flex:1 1 0;min-width:0;border-radius:2px;background:var(--c-line);min-height:4px}
 .wbars i.on{background:var(--c-sage)}
 .wbars i.now{background:var(--c-clay)}
 .home .sos{margin-top:0;height:auto;min-height:60px;padding-block:10px}
@@ -418,8 +418,8 @@ html.reduce .pk-grow{animation:none}
 .gb i{display:block;height:100%;background:var(--c-apricot);border-radius:3px}
 
 .crave-row{display:flex;direction:rtl;justify-content:space-between;align-items:center;width:100%;margin-top:12px;gap:4px}
-.crave-row button{flex:1 1 0;aspect-ratio:1;max-width:34px;border-radius:50%;display:grid;place-items:center;padding:0;background:var(--c-sunk);color:var(--c-ink-2);font:600 15px/1 var(--f-text);font-variant-numeric:tabular-nums lining-nums}
-.crave-row button span{display:block;line-height:1;transform:translateY(0.49em)}
+.crave-row button{flex:1 1 0;aspect-ratio:1;max-width:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;background:var(--c-sunk);color:var(--c-ink-2);font:600 15px/1 var(--f-text);font-variant-numeric:tabular-nums lining-nums;line-height:1}
+.crave-row button span,.num-orb{display:block;line-height:1;transform:none}
 .crave-row button.on{background:var(--c-ink);color:var(--c-bg)}
 .mds{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:12px}
 .md{width:52px;height:52px;flex:none;border-radius:50%;display:grid;place-items:center;color:var(--c-ink-2);background:var(--c-sunk)}
@@ -595,16 +595,20 @@ html.reduce .blobs{transition:opacity .2s linear}
 .slipnote{display:flex;gap:10px;align-items:flex-start;width:calc(100% - 2 * var(--gutter));margin:12px var(--gutter) 0;padding:12px 14px;border-radius:var(--r-lg);border:1.5px solid color-mix(in srgb, var(--c-clay) 35%, var(--c-line));background:var(--c-surface);text-align:start;font:400 13.5px/1.45 var(--f-text);color:var(--c-ink-2)}
 .slipnote b{color:var(--c-ink);font-weight:600}
 .slipnote .spot{flex:none}
-.hfil{display:flex;gap:8px;overflow:auto;margin-top:6px}
+.hfil{display:flex;gap:8px;overflow-x:auto;max-width:100%;min-width:0;margin-top:6px}
 .hfil button{flex:none;border:1.5px solid var(--c-line);border-radius:999px;padding:8px 13px;font:500 13px/1 var(--f-text);color:var(--c-ink-2)}
 .hfil button.on{background:var(--c-ink);color:var(--c-bg);border-color:var(--c-ink)}
 .slip-add{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:12px 14px;border-radius:16px;border:1.5px solid var(--c-line);background:var(--c-surface);text-align:start;font:600 15.5px/1 var(--f-text);color:var(--c-ink)}
 .slsum{margin:12px 0 0}
-.ddrow{display:flex;gap:6px;margin:12px 0 4px}
-.dd{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
-.dd i{width:100%;height:8px;border-radius:4px;background:var(--c-hill);opacity:.75}
+.ddrow{display:flex;gap:3px;width:100%;min-width:0;margin:12px 0 4px;overflow:hidden}
+.ddrow.dense{gap:0}
+.dd{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dd i{display:block;width:100%;min-width:0;height:8px;border-radius:4px;background:var(--c-hill);opacity:.75}
+.ddrow.dense .dd i{border-radius:0}
+.ddrow.dense .dd:first-child i{border-start-start-radius:4px;border-end-start-radius:4px}
+.ddrow.dense .dd:last-child i{border-start-end-radius:4px;border-end-end-radius:4px}
 .dd.on i{background:var(--c-clay);opacity:1}
-.dd em{font:400 11px/1 var(--f-text);font-style:normal;color:var(--c-ink-2)}
+.dd em{max-width:100%;overflow:hidden;font:400 10px/1 var(--f-text);font-style:normal;color:var(--c-ink-2);white-space:nowrap}
 .slsum .led{border-bottom:0;margin-top:8px;border-top:1px solid color-mix(in srgb, var(--c-ink) 12%, transparent)}
 ul.hl{padding:0;margin:6px 0 0}
 li.hist .sx-ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--c-sunk)}
@@ -686,7 +690,7 @@ li.hist .sx-tools button{font:500 12.5px/1 var(--f-text);color:var(--c-hill)}
 .hero-art{position:absolute;inset:0;-webkit-mask-image:linear-gradient(#000 0,#000 78%,transparent 100%);mask-image:linear-gradient(#000 0,#000 78%,transparent 100%)}
 .hero-art .living{position:absolute;inset:0}
 .hero-art .living .stack{position:absolute;left:0;right:0;top:-24px;aspect-ratio:1170/1404}
-.hero-art .pk-stage{top:-28px;-webkit-mask-image:none;mask-image:none}
+.hero-art .pk-stage{top:-28px;-webkit-mask-image:none;mask-image:none;transform:translateX(-50%) scale(1.145);transform-origin:top center}
 .hero-bar{position:absolute;top:calc(14px + var(--sat, env(safe-area-inset-top)));right:var(--gutter);left:var(--gutter);z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .hero-tt{text-align:start}
 .hero-tt h1{margin:0;font:700 26px/1.1 var(--f-display);color:var(--c-ink);text-shadow:0 0 14px color-mix(in srgb,var(--c-bg) 70%,transparent)}
