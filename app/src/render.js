@@ -8,6 +8,7 @@ import { ui } from './ui-state.js';
 import {
   DAY, MONTH, YEAR, cigsAt, esc, fmtClock, fmtDur, futureValue, greet, hebDate,
   ils, keepSlips, lastSmokeAt, moneyAt, nf, ppcOf, prevMoney, triggerCounts, checkinStreak, longestAt,
+  goalBarWidth, goalProgress,
 } from './calc.js';
 import { HEALTH, SYSTEMS, withSlips } from './health.js';
 import { ACH, GROUPS, achVal } from './achievements.js';
@@ -104,6 +105,7 @@ export function render() {
   else stopWelcomeTease();
   if (ui.route === 'onboard') bindOnboard();
   if (ui.route === 'breathedit') bindPhaseDrag();
+  bindDaySnaps();
 }
 
 /** Vertical digit strip. The shekel mark is never inside this node. */
@@ -295,9 +297,7 @@ function home() {
   const parts = moneySplit(money);
   const cigs = has ? Math.floor(cigsAt(st, t)) : null;
   const life = lifeParts((has ? cigsAt(st, t) : 0) * (st.settings.mpc || 11));
-  const goal = st.settings.goalPrice || 0;
-  const have = (money || 0) + prevMoney(st);
-  const gp = goal ? Math.min(1, have / goal) : 0;
+  const progress = goalProgress(st, t);
   const stage = stageFor(days);
   const scene = livingScene(days, dark);
   const dayA = days === 1 ? 'יום' : 'ימים';
@@ -305,8 +305,8 @@ function home() {
   const healthLine = next
     ? `<button class="slim" data-act="go" data-go="health">${ring(next.pct || 0)}<span class="col"><span class="one">${esc(next.title)}</span><span class="sub">בעוד ${fmtDur(Math.max(0, next.at - (next.e ?? elapsed)), 1)}</span></span><i class="slimbar" aria-hidden="true"><b style="width:${Math.max(4, Math.round((next.pct || 0) * 100))}%"></b></i></button>`
     : `<button class="slim" data-act="go" data-go="health">${ring(1)}<span class="col"><span class="one">${latest ? esc(latest.title) : 'הגוף'}</span></span></button>`;
-  const goalLine = goal
-    ? `<button class="slim" data-act="editor" data-ed="goal">${spot('jar', 36)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(have, 0)} מתוך ${moneyFig(goal, 0)}</span></span><i class="slimbar${gp > 0 && gp < 0.08 ? ' seed' : ''}" aria-hidden="true"><b style="width:${(Math.max(gp * 100, gp > 0 ? 6 : 0)).toFixed(1)}%"></b></i></button>`
+  const goalLine = progress.price
+    ? `<button class="slim" data-act="editor" data-ed="goal">${spot('jar', 36)}<span class="col"><span class="one">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="sub">${moneyFig(progress.saved, 0)} מתוך ${moneyFig(progress.price, 0)}</span></span>${goalBar(progress.ratio)}</button>`
     : `<button class="slim" data-act="editor" data-ed="goal">${spot('goal', 36)}<span class="one">יעד חיסכון</span></button>`;
   const keptCigs = kept.reduce((a, x) => a + (+x.cigs || 0), 0);
   const slipLine = kept.length
@@ -442,8 +442,7 @@ function pocket() {
   const monthly = monthlyRate();
   const horizon = [5, 10, 20].includes(ui.horizon) ? ui.horizon : 10;
   const big = futureValue(saved, monthly, GROWTH_RATE, horizon);
-  const goal = st.settings.goalPrice || 0;
-  const gp = goal ? saved / goal : 0;
+  const progress = goalProgress(st, t);
   const projText = nf(big, 0);
   const moneyAch = ACH.filter((a) => a.group === 'money');
   const earned = moneyAch.filter((a) => st.unlocked[a.id]).length;
@@ -459,8 +458,8 @@ function pocket() {
     [10, 'growth-2', 86],
     [20, 'growth-3', 104],
   ];
-  const goalCard = goal
-    ? `<button class="gcard" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gmid"><span class="gname">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="gbar"><i style="width:${Math.min(100, gp * 100).toFixed(1)}%"></i></span><span class="gsub">${shekelHtml(Math.floor(saved), 0)} מתוך ${shekelHtml(goal, 0)}</span></span><bdi dir="ltr" class="gpct">${Math.round(gp * 100)}%</bdi></button>`
+  const goalCard = progress.price
+    ? `<button class="gcard" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gmid"><span class="gname">${esc(st.settings.goalName || 'יעד חיסכון')}</span>${goalBar(progress.ratio)}<span class="gsub">${shekelHtml(Math.floor(progress.saved), 0)} מתוך ${shekelHtml(progress.price, 0)}</span></span><bdi dir="ltr" class="gpct">${Math.round(progress.ratio * 100)}%</bdi></button>`
     : `<button class="gcard empty" data-act="editor" data-ed="goal">${pocketSpot('spot-goal-jar', 64)}<span class="gname">בחרו יעד חיסכון</span></button>`;
   return `<div class="screen money-screen">
     <header class="pk-hero">
@@ -675,9 +674,8 @@ function stats() {
   for (let i = 0; i < total; i++) dots += `<i class="${i < smoked ? 'on' : i === smoked ? 'now' : ''}"></i>`;
   const per = ppcOf(st.settings);
   const day = (st.settings.cpd || 0) * per;
-  const have = moneyAt(st, t) + prevMoney(st);
-  const goal = st.settings.goalPrice || 0;
-  const gp = goal ? Math.min(1, have / goal) : 0;
+  const progress = goalProgress(st, t);
+  const have = progress.saved;
   const cmp = [{ n: 'קפה בחוץ', p: 16 }, { n: 'כרטיס קולנוע', p: 48 }, { n: 'ארוחה בחוץ', p: 80 }, { n: 'נעלי ספורט', p: 450 }]
     .map((c) => ({ ...c, q: have / c.p })).filter((c) => c.q >= 1).slice(0, 3);
   const mode = st.settings.mode === 'pack' ? 'סיגריות בקופסה' : 'טבק לגלגול';
@@ -689,7 +687,7 @@ function stats() {
       </div>
       <div class="moneyline"><div><div class="eyebrow">נחסך עד עכשיו</div><div class="ils-display" style="margin-top:6px">${moneyFig(moneyAt(st, t), 2)}</div></div><div class="small" style="text-align:end">${moneyFig(per, 2)} לסיגריה<br>${mode}</div></div>
       <div class="led"><div><div class="v">${moneyFig(day, 2)}</div><div class="k">ביום</div></div><div><div class="v">${moneyFig(day * MONTH / DAY, 0)}</div><div class="k">בחודש</div></div><div><div class="v">${moneyFig(day * YEAR / DAY, 0)}</div><div class="k">בשנה</div></div></div>
-      ${goal ? `<div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div style="display:flex;justify-content:space-between;align-items:center">${icon('goal', 18, 'var(--c-clay)')}<span style="flex:1;margin-inline-start:8px">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="small"><b style="color:var(--c-ink)">${moneyFig(have, 0)}</b> מתוך ${moneyFig(goal, 0)}</span></div><div class="gb"><i style="width:${(gp * 100).toFixed(1)}%"></i></div></div>` : `<button class="row" data-act="editor" data-ed="goal"><div class="t">אפשר להגדיר יעד חיסכון</div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`}
+      ${progress.price ? `<div style="padding:14px 0;border-bottom:1px solid var(--c-line)"><div style="display:flex;justify-content:space-between;align-items:center">${icon('goal', 18, 'var(--c-clay)')}<span style="flex:1;margin-inline-start:8px">${esc(st.settings.goalName || 'יעד חיסכון')}</span><span class="small"><b style="color:var(--c-ink)">${moneyFig(have, 0)}</b> מתוך ${moneyFig(progress.price, 0)}</span></div>${goalBar(progress.ratio)}</div>` : `<button class="row" data-act="editor" data-ed="goal"><div class="t">אפשר להגדיר יעד חיסכון</div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>`}
       ${cmp.map((c) => `<div style="display:flex;justify-content:space-between;padding:9px 0"><span>${c.n}</span><b>${nf(c.q, c.q >= 10 ? 0 : 1)}</b></div>`).join('')}
       ${prevMoney(st) > 0 ? `<p class="small">כולל רצפים קודמים: ${ils(have, 0)}. השיא: ${fmtDur(longestAt(st, t), 2)}.</p>` : ''}
       ${ad('stats')}
@@ -720,7 +718,7 @@ function journalToday(t, streak, moods) {
   const tip = wk.top ? triggerById(wk.top[0]) : null;
   return `${streak ? `<div class="small">רצף צ׳ק-אין: <b style="color:var(--c-ink)">${streak}</b> ${streak === 1 ? 'יום' : 'ימים'}</div>` : ''}
     <div style="padding:12px 0;border-bottom:1px solid var(--c-line)"><div class="h2" style="font-size:16px">איך עבר היום</div><div class="mds" id="moods">${moods}</div>
-      <div class="sl" style="margin-top:16px"><div style="display:flex;justify-content:space-between"><span class="eyebrow">עוצמת החשק היום</span><span id="craveV" style="font:600 14px/1 var(--f-text)">${crave} מתוך 10</span></div><div class="tr"><input id="crave" type="range" min="0" max="10" value="${crave}"><div class="th" style="inset-inline-end:${crave * 10}%"></div></div></div>
+      <div class="sl" style="margin-top:16px"><div style="display:flex;justify-content:space-between"><span class="eyebrow">עוצמת החשק היום</span><span id="craveV" style="font:600 14px/1 var(--f-text)">${crave} מתוך 10</span></div>${daySnap('crave', crave)}</div>
       <div style="display:flex;gap:10px;margin-top:14px"><input class="input" id="cnote" placeholder="מילה על היום (לא חובה)" value="${esc(today?.note || '')}"><button class="btn primary" data-act="checkin" style="height:48px;padding:0 18px">שמירה</button></div>
     </div>
     <button class="row" data-act="win"><div class="ib">${icon('wave', 19)}</div><div class="t">חשק עבר עכשיו<small>נגיעה אחת. אפשר לדייק אחר כך</small></div>${icon('chevron', 16, 'var(--c-ink-3)')}</button>
@@ -1053,7 +1051,7 @@ function insightSheet() {
     <div class="eyebrow" style="color:var(--c-hill)">גל מספר ${info.wins}</div>
     <div class="h1" style="margin-top:6px">${esc(info.title)}</div>
     <p class="lead" style="margin-top:8px">${esc(info.body)}</p>
-    <div class="sl" style="margin-top:14px"><div style="display:flex;justify-content:space-between"><span class="eyebrow">עוצמה</span><b>${inten}/10</b></div><div class="tr"><input id="logint" type="range" min="0" max="10" value="${inten}"><div class="th" style="inset-inline-end:${inten * 10}%"></div></div></div>
+    <div class="sl" style="margin-top:14px"><div style="display:flex;justify-content:space-between"><span class="eyebrow">עוצמה</span><b id="logintV">${inten}/10</b></div>${daySnap('logint', inten)}</div>
     <div class="chips" style="margin-top:12px">${chips}</div>
     <div class="field"><div class="input"><input id="lognote" placeholder="מילה (לא חובה)" value="${esc(entry.note || '')}"></div></div>
     <button class="btn primary" data-act="insight-close" style="width:100%;margin-top:12px">הבנתי</button>
@@ -1186,6 +1184,95 @@ function maybeCoin(money) {
     }
   }
   coinWhole = whole;
+}
+
+function goalBar(ratio) {
+  const width = goalBarWidth(ratio).toFixed(1);
+  const seed = ratio > 0 && ratio < 0.08;
+  return `<span class="goalbar${seed ? ' seed' : ''}" aria-hidden="true"><b style="width:${width}%"></b></span>`;
+}
+
+function daySnap(id, value) {
+  const v = Math.max(0, Math.min(10, Math.round(+value || 0)));
+  const opts = Array.from({ length: 11 }, (_, n) => `<button type="button" data-v="${n}" role="radio" aria-checked="${n === v ? 'true' : 'false'}" class="${n === v ? 'on' : ''}" aria-label="${n} מתוך 10">${n}</button>`).join('');
+  return `<div class="daysnap" dir="rtl" role="radiogroup" aria-label="עוצמת החשק" data-snap="${id}" data-value="${v}"><span class="pad" aria-hidden="true"></span>${opts}<span class="pad" aria-hidden="true"></span></div>`;
+}
+
+function bindDaySnaps() {
+  document.querySelectorAll('[data-snap]').forEach((scroller) => {
+    if (scroller.dataset.bound) return;
+    scroller.dataset.bound = '1';
+    const buttons = [...scroller.querySelectorAll('button[data-v]')];
+    const center = (el, smooth) => {
+      const screen = scroller.closest('.screen');
+      const top = screen ? screen.scrollTop : 0;
+      el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+      if (screen) screen.scrollTop = top;
+    };
+    const nearest = () => {
+      const box = scroller.getBoundingClientRect();
+      const mid = box.left + box.width / 2;
+      let best = buttons[0];
+      let bestD = Infinity;
+      for (const b of buttons) {
+        const r = b.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - mid);
+        if (d < bestD) { best = b; bestD = d; }
+      }
+      return best;
+    };
+    const apply = (btn, fromUser) => {
+      if (!btn) return;
+      scroller.dataset.value = btn.dataset.v;
+      for (const b of buttons) {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      }
+      const n = btn.dataset.v;
+      if (scroller.dataset.snap === 'crave') {
+        const label = document.getElementById('craveV');
+        if (label) label.textContent = `${n} מתוך 10`;
+      }
+      if (scroller.dataset.snap === 'logint') {
+        const label = document.getElementById('logintV');
+        if (label) label.textContent = `${n}/10`;
+        if (fromUser) {
+          const entry = st.cravings.find((c) => c.id === ui.insightId);
+          if (entry) entry.intensity = +n;
+        }
+      }
+    };
+    const current = buttons.find((b) => b.dataset.v === scroller.dataset.value) || buttons[0];
+    if (current) center(current, false);
+    let timer = 0;
+    let user = false;
+    let dragged = false;
+    const finish = () => {
+      if (!user) return;
+      apply(nearest(), true);
+    };
+    scroller.addEventListener('pointerdown', () => { user = true; dragged = false; }, { passive: true });
+    scroller.addEventListener('scroll', () => {
+      if (!user) return;
+      dragged = true;
+      clearTimeout(timer);
+      timer = setTimeout(finish, 120);
+    }, { passive: true });
+    scroller.addEventListener('scrollend', () => {
+      if (!user) return;
+      clearTimeout(timer);
+      finish();
+    });
+    scroller.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-v]');
+      if (!btn || !scroller.contains(btn)) return;
+      if (dragged) return;
+      user = true;
+      apply(btn, true);
+      center(btn, true);
+    });
+  });
 }
 
 const KCOL = { in: 'var(--c-hill)', hold: 'var(--c-apricot)', out: 'var(--c-sage)', empty: 'var(--c-clay)' };

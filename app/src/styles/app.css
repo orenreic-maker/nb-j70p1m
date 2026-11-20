@@ -142,8 +142,11 @@ html.reduce .dg .strip{transition:none}
 .slim .sub{display:block;font:400 12px/1.2 var(--f-text);color:var(--c-ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slimbar{flex:none;width:64px;height:4px;border-radius:3px;background:var(--c-sunk);position:relative}
 .slimbar b{display:block;height:100%;border-radius:3px;background:var(--c-apricot)}
-.slimbar.seed b{min-width:10px;position:relative}
-.slimbar.seed b:after{content:"";position:absolute;top:50%;inset-inline-end:-1px;width:8px;height:8px;border-radius:50%;background:var(--c-apricot);transform:translateY(-50%)}
+.goalbar{display:block;height:6px;border-radius:99px;background:var(--c-line);position:relative}
+.goalbar b{display:block;height:100%;border-radius:99px;background:var(--c-apricot);position:relative}
+.goalbar.seed b:after{content:"";position:absolute;top:50%;inset-inline-end:-4px;width:8px;height:8px;border-radius:50%;background:var(--c-apricot);transform:translateY(-50%)}
+.slim .goalbar{width:64px;height:4px;flex:none}
+.gcard .goalbar{margin:8px 0 6px}
 .hrow{display:flex;align-items:flex-start;gap:10px;width:100%;padding:6px 0;border-bottom:1px solid var(--c-line);text-align:start}
 .hrow.static{align-items:center}
 .hrow .hmain{flex:1;min-width:0}
@@ -440,6 +443,11 @@ html.reduce .pk-grow{animation:none}
 .gb{height:6px;border-radius:3px;background:var(--c-sunk);margin-top:10px}
 .gb i{display:block;height:100%;background:var(--c-apricot);border-radius:3px}
 
+.daysnap{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;direction:rtl;touch-action:pan-x;scrollbar-width:none;margin-top:12px;padding-block:4px;-webkit-overflow-scrolling:touch}
+.daysnap::-webkit-scrollbar{display:none}
+.daysnap .pad{flex:0 0 calc(50% - 26px)}
+.daysnap button{flex:0 0 44px;height:44px;border-radius:50%;scroll-snap-align:center;background:var(--c-sunk);color:var(--c-ink-2);font:600 15px/1 var(--f-text)}
+.daysnap button.on{background:var(--c-ink);color:var(--c-bg)}
 .mds{display:flex;justify-content:space-between;margin-top:12px}
 .md{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:var(--c-ink-2);background:var(--c-sunk)}
 .md.on{background:var(--c-ink);color:var(--c-bg)}
