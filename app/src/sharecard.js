@@ -9,7 +9,7 @@ export async function drawCard(st, now, opts) {
   c.width = W;
   c.height = H;
   const g = c.getContext('2d');
-  try { await document.fonts.load("700 120px Karantina"); await document.fonts.load("500 40px 'Plex Hebrew'"); } catch { /* fallback */ }
+  try { await document.fonts.load("700 120px Fredoka"); await document.fonts.load("500 40px Fredoka"); } catch { /* fallback */ }
   g.fillStyle = '#F6EFE3';
   g.fillRect(0, 0, W, H);
   const raw = scene(390, 430, false, Math.min(8, Math.max(1, Math.floor((now - (st.settings.quitAt || now)) / 864e5) || 1)));
@@ -18,30 +18,30 @@ export async function drawCard(st, now, opts) {
   if (img) g.drawImage(img, 0, 0, W, story ? 760 : 420);
   const days = st.settings.quitAt ? Math.floor(Math.max(0, now - st.settings.quitAt) / 864e5) : 0;
   g.fillStyle = '#2F3A2B';
-  g.font = '700 280px Karantina, serif';
+  g.font = '700 200px Fredoka, sans-serif';
   g.direction = 'rtl';
   g.textAlign = 'right';
   const top = story ? 860 : 500;
   g.fillText(String(days), W - 80, top);
-  g.font = "500 54px 'Plex Hebrew', sans-serif";
+  g.font = "500 54px Fredoka, sans-serif";
   g.fillText('ימים של אוויר נקי', W - 80, top + 70);
-  g.font = "400 32px 'Plex Hebrew', sans-serif";
+  g.font = "400 32px Fredoka, sans-serif";
   g.fillStyle = '#6F7468';
   g.fillText('בלי סיגריה אחת', W - 80, top + 120);
   if (opts.money !== false) {
     const money = moneyAt(st, now) + prevMoney(st);
     const cigs = Math.floor(cigsAt(st, now) + prevCigs(st));
     g.fillStyle = '#2F3A2B';
-    g.font = "600 42px 'Plex Hebrew', sans-serif";
+    g.font = "600 42px Fredoka, sans-serif";
     const y = top + 210;
     g.fillText(ils(money, 0), W - 80, y);
-    g.font = "400 28px 'Plex Hebrew', sans-serif";
+    g.font = "400 28px Fredoka, sans-serif";
     g.fillStyle = '#6F7468';
     g.fillText('נשארו בכיס', W - 80, y + 40);
     g.fillStyle = '#2F3A2B';
-    g.font = "600 42px 'Plex Hebrew', sans-serif";
+    g.font = "600 42px Fredoka, sans-serif";
     g.fillText(String(cigs), W - 420, y);
-    g.font = "400 28px 'Plex Hebrew', sans-serif";
+    g.font = "400 28px Fredoka, sans-serif";
     g.fillStyle = '#6F7468';
     g.fillText('סיגריות שלא נדלקו', W - 420, y + 40);
   }
@@ -49,13 +49,13 @@ export async function drawCard(st, now, opts) {
     drawDots(g, 80, (opts.money === false ? top + 180 : top + 300), W - 160, st, now);
   }
   g.fillStyle = '#6F7468';
-  g.font = "500 28px 'Plex Hebrew', sans-serif";
+  g.font = "500 28px Fredoka, sans-serif";
   g.textAlign = 'left';
   g.fillText(WORDMARK, 80, H - 70);
   g.textAlign = 'right';
   g.fillText('מונה גמילה פרטי', W - 80, H - 70);
   if (opts.caption) {
-    g.font = "500 36px 'Plex Hebrew', sans-serif";
+    g.font = "500 36px Fredoka, sans-serif";
     g.fillStyle = '#2F3A2B';
     g.fillText(opts.caption, W - 80, H - 140);
   }

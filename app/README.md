@@ -146,4 +146,4 @@ On the web there are no ads. Local notifications and the purchase sheet work in 
 
 Import an old JSON backup from Settings. The preview uses storage key `breathanew.v1` (Capacitor stores it as `CapacitorStorage.breathanew.v1`). It never reads or writes `nshima.v1`.
 
-Fonts: Karantina and IBM Plex Sans Hebrew, SIL Open Font License. License files are in `app/public/fonts/`.
+Font: Fredoka, SIL Open Font License, self-hosted as a woff2 subset in `app/public/fonts/`. No runtime request to Google Fonts.
